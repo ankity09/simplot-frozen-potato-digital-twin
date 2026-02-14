@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+message PotatoSensor {
+    double oil_temperature = 1;
+    double water_temperature = 2;
+    double belt_speed = 3;
+    double freezer_temperature = 4;
+    double moisture_content = 5;
+    double product_weight = 6;
+    double component_yield_output = 7;
+    string timestamp = 8;
+    string component_id = 9;
+    string stage_id = 10;
+    bool damaged_component = 11;
+    string abnormal_sensor = 12;
+    string line_id = 13;
+}

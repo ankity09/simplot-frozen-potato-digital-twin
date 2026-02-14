@@ -1,0 +1,16 @@
+{
+  "tables": {
+    "potato_sensors": {
+      "full_table_name": "ankit_yadav.frozen_potato.potato_sensor_bronze",
+      "proto_message": "PotatoSensor",
+      "proto_file": "tables/potato_sensors/schema.proto",
+      "description": "Frozen potato factory sensor telemetry data"
+    }
+  },
+  "connection": {
+    "workspace_url": "${WORKSPACE_URL}",
+    "zerobus_url": "${ZEROBUS_URL}",
+    "client_id": "${CLIENT_ID}",
+    "client_secret": "${CLIENT_SECRET}"
+  }
+}

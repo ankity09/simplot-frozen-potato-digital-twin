@@ -1,0 +1,275 @@
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+# This prefix defines built in predicates provided by Databricks Digital Twins
+@prefix dt: <http://databricks.com/digitaltwin/> .
+# Frozen potato factory namespace
+@prefix ex: <http://example.com/potato-factory/> .
+
+################################################################################
+# Definitions of Databricks Digital Twin built in predicates
+################################################################################
+
+dt:partOf a rdfs:Property ;
+    rdfs:label "part of" ;
+    rdfs:comment "Indicates that the subject is a part of the object. Visualised as the subject being drawn inside the object." .
+
+dt:dependsOn a rdfs:Property ;
+    rdfs:label "depends on" ;
+    rdfs:comment "Indicates that the subject is somehow reliant on the object to function. Visualised as an arrow from the object to the subject." .
+
+dt:propagates a rdfs:Property ;
+    rdfs:label "propagates" ;
+    rdfs:comment "Indicates that faults in the object will affect the subject. Visualised as a different colour for indirectly affected entities." .
+
+################################################################################
+# Frozen potato factory concept definitions
+################################################################################
+
+ex:Factory a rdfs:Class ;
+    rdfs:comment "A frozen potato processing plant" .
+
+ex:ProductionLine a rdfs:Class ;
+    rdfs:comment "A production line produces a specific potato product (fries, hash browns, wedges)" .
+
+ex:ProcessingStage a rdfs:Class ;
+    rdfs:comment "A processing stage within a production line (e.g. Washing, Frying, IQF Freezing)" .
+
+ex:Component a rdfs:Class ;
+    rdfs:comment "The main equipment unit at a processing stage" .
+
+ex:inLine rdfs:subPropertyOf dt:partOf ;
+    rdfs:domain ex:ProcessingStage ;
+    rdfs:range ex:ProductionLine ;
+    rdfs:label "in line" ;
+    rdfs:comment "A processing stage is part of a production line" .
+
+ex:componentOf rdfs:subPropertyOf dt:partOf ;
+    rdfs:domain ex:Component ;
+    rdfs:range ex:ProcessingStage ;
+    rdfs:label "component of" ;
+    rdfs:comment "A component belongs to a processing stage" .
+
+ex:upstream rdfs:subPropertyOf dt:dependsOn .
+ex:upstream rdfs:subPropertyOf dt:propagates .
+
+################################################################################
+# Factory
+################################################################################
+
+ex:simplot-clarebout a ex:Factory ;
+    rdfs:label "Simplot/Clarebout Frozen Potato Plant" .
+
+################################################################################
+# Line 1: French Fries
+# Washing -> Peeling -> Cutting -> Blanching -> Frying -> IQF Freezing
+################################################################################
+
+ex:line-french-fries a ex:ProductionLine ;
+    rdfs:label "French Fries" ;
+    dt:partOf ex:simplot-clarebout .
+
+ex:stage-ff-washing a ex:ProcessingStage ;
+    rdfs:label "Washing" ;
+    ex:inLine ex:line-french-fries ;
+    dt:partOf ex:line-french-fries .
+
+ex:stage-ff-peeling a ex:ProcessingStage ;
+    rdfs:label "Peeling" ;
+    ex:inLine ex:line-french-fries ;
+    dt:partOf ex:line-french-fries ;
+    ex:upstream ex:stage-ff-washing ;
+    dt:dependsOn ex:stage-ff-washing .
+
+ex:stage-ff-cutting a ex:ProcessingStage ;
+    rdfs:label "Cutting" ;
+    ex:inLine ex:line-french-fries ;
+    dt:partOf ex:line-french-fries ;
+    ex:upstream ex:stage-ff-peeling ;
+    dt:dependsOn ex:stage-ff-peeling .
+
+ex:stage-ff-blanching a ex:ProcessingStage ;
+    rdfs:label "Blanching" ;
+    ex:inLine ex:line-french-fries ;
+    dt:partOf ex:line-french-fries ;
+    ex:upstream ex:stage-ff-cutting ;
+    dt:dependsOn ex:stage-ff-cutting .
+
+ex:stage-ff-frying a ex:ProcessingStage ;
+    rdfs:label "Frying" ;
+    ex:inLine ex:line-french-fries ;
+    dt:partOf ex:line-french-fries ;
+    ex:upstream ex:stage-ff-blanching ;
+    dt:dependsOn ex:stage-ff-blanching .
+
+ex:stage-ff-iqf a ex:ProcessingStage ;
+    rdfs:label "IQF Freezing" ;
+    ex:inLine ex:line-french-fries ;
+    dt:partOf ex:line-french-fries ;
+    ex:upstream ex:stage-ff-frying ;
+    dt:dependsOn ex:stage-ff-frying .
+
+# French Fries Components
+ex:component-FF-WASH a ex:Component ;
+    rdfs:label "FF Washer" ;
+    ex:componentOf ex:stage-ff-washing ;
+    dt:partOf ex:stage-ff-washing .
+
+ex:component-FF-PEEL a ex:Component ;
+    rdfs:label "FF Peeler" ;
+    ex:componentOf ex:stage-ff-peeling ;
+    dt:partOf ex:stage-ff-peeling .
+
+ex:component-FF-CUT a ex:Component ;
+    rdfs:label "FF Cutter" ;
+    ex:componentOf ex:stage-ff-cutting ;
+    dt:partOf ex:stage-ff-cutting .
+
+ex:component-FF-BLANCH a ex:Component ;
+    rdfs:label "FF Blancher" ;
+    ex:componentOf ex:stage-ff-blanching ;
+    dt:partOf ex:stage-ff-blanching .
+
+ex:component-FF-FRY a ex:Component ;
+    rdfs:label "FF Fryer" ;
+    ex:componentOf ex:stage-ff-frying ;
+    dt:partOf ex:stage-ff-frying .
+
+ex:component-FF-IQF a ex:Component ;
+    rdfs:label "FF IQF Freezer" ;
+    ex:componentOf ex:stage-ff-iqf ;
+    dt:partOf ex:stage-ff-iqf .
+
+################################################################################
+# Line 2: Hash Browns
+# Washing -> Peeling -> Shredding -> Forming -> IQF Freezing
+################################################################################
+
+ex:line-hash-browns a ex:ProductionLine ;
+    rdfs:label "Hash Browns" ;
+    dt:partOf ex:simplot-clarebout .
+
+ex:stage-hb-washing a ex:ProcessingStage ;
+    rdfs:label "Washing" ;
+    ex:inLine ex:line-hash-browns ;
+    dt:partOf ex:line-hash-browns .
+
+ex:stage-hb-peeling a ex:ProcessingStage ;
+    rdfs:label "Peeling" ;
+    ex:inLine ex:line-hash-browns ;
+    dt:partOf ex:line-hash-browns ;
+    ex:upstream ex:stage-hb-washing ;
+    dt:dependsOn ex:stage-hb-washing .
+
+ex:stage-hb-shredding a ex:ProcessingStage ;
+    rdfs:label "Shredding" ;
+    ex:inLine ex:line-hash-browns ;
+    dt:partOf ex:line-hash-browns ;
+    ex:upstream ex:stage-hb-peeling ;
+    dt:dependsOn ex:stage-hb-peeling .
+
+ex:stage-hb-forming a ex:ProcessingStage ;
+    rdfs:label "Forming" ;
+    ex:inLine ex:line-hash-browns ;
+    dt:partOf ex:line-hash-browns ;
+    ex:upstream ex:stage-hb-shredding ;
+    dt:dependsOn ex:stage-hb-shredding .
+
+ex:stage-hb-iqf a ex:ProcessingStage ;
+    rdfs:label "IQF Freezing" ;
+    ex:inLine ex:line-hash-browns ;
+    dt:partOf ex:line-hash-browns ;
+    ex:upstream ex:stage-hb-forming ;
+    dt:dependsOn ex:stage-hb-forming .
+
+# Hash Browns Components
+ex:component-HB-WASH a ex:Component ;
+    rdfs:label "HB Washer" ;
+    ex:componentOf ex:stage-hb-washing ;
+    dt:partOf ex:stage-hb-washing .
+
+ex:component-HB-PEEL a ex:Component ;
+    rdfs:label "HB Peeler" ;
+    ex:componentOf ex:stage-hb-peeling ;
+    dt:partOf ex:stage-hb-peeling .
+
+ex:component-HB-SHRED a ex:Component ;
+    rdfs:label "HB Shredder" ;
+    ex:componentOf ex:stage-hb-shredding ;
+    dt:partOf ex:stage-hb-shredding .
+
+ex:component-HB-FORM a ex:Component ;
+    rdfs:label "HB Former" ;
+    ex:componentOf ex:stage-hb-forming ;
+    dt:partOf ex:stage-hb-forming .
+
+ex:component-HB-IQF a ex:Component ;
+    rdfs:label "HB IQF Freezer" ;
+    ex:componentOf ex:stage-hb-iqf ;
+    dt:partOf ex:stage-hb-iqf .
+
+################################################################################
+# Line 3: Wedges
+# Washing -> Cutting -> Seasoning -> Frying -> IQF Freezing
+################################################################################
+
+ex:line-wedges a ex:ProductionLine ;
+    rdfs:label "Wedges" ;
+    dt:partOf ex:simplot-clarebout .
+
+ex:stage-wg-washing a ex:ProcessingStage ;
+    rdfs:label "Washing" ;
+    ex:inLine ex:line-wedges ;
+    dt:partOf ex:line-wedges .
+
+ex:stage-wg-cutting a ex:ProcessingStage ;
+    rdfs:label "Cutting" ;
+    ex:inLine ex:line-wedges ;
+    dt:partOf ex:line-wedges ;
+    ex:upstream ex:stage-wg-washing ;
+    dt:dependsOn ex:stage-wg-washing .
+
+ex:stage-wg-seasoning a ex:ProcessingStage ;
+    rdfs:label "Seasoning" ;
+    ex:inLine ex:line-wedges ;
+    dt:partOf ex:line-wedges ;
+    ex:upstream ex:stage-wg-cutting ;
+    dt:dependsOn ex:stage-wg-cutting .
+
+ex:stage-wg-frying a ex:ProcessingStage ;
+    rdfs:label "Frying" ;
+    ex:inLine ex:line-wedges ;
+    dt:partOf ex:line-wedges ;
+    ex:upstream ex:stage-wg-seasoning ;
+    dt:dependsOn ex:stage-wg-seasoning .
+
+ex:stage-wg-iqf a ex:ProcessingStage ;
+    rdfs:label "IQF Freezing" ;
+    ex:inLine ex:line-wedges ;
+    dt:partOf ex:line-wedges ;
+    ex:upstream ex:stage-wg-frying ;
+    dt:dependsOn ex:stage-wg-frying .
+
+# Wedges Components
+ex:component-WG-WASH a ex:Component ;
+    rdfs:label "WG Washer" ;
+    ex:componentOf ex:stage-wg-washing ;
+    dt:partOf ex:stage-wg-washing .
+
+ex:component-WG-CUT a ex:Component ;
+    rdfs:label "WG Cutter" ;
+    ex:componentOf ex:stage-wg-cutting ;
+    dt:partOf ex:stage-wg-cutting .
+
+ex:component-WG-SEASON a ex:Component ;
+    rdfs:label "WG Seasoner" ;
+    ex:componentOf ex:stage-wg-seasoning ;
+    dt:partOf ex:stage-wg-seasoning .
+
+ex:component-WG-FRY a ex:Component ;
+    rdfs:label "WG Fryer" ;
+    ex:componentOf ex:stage-wg-frying ;
+    dt:partOf ex:stage-wg-frying .
+
+ex:component-WG-IQF a ex:Component ;
+    rdfs:label "WG IQF Freezer" ;
+    ex:componentOf ex:stage-wg-iqf ;
+    dt:partOf ex:stage-wg-iqf .
