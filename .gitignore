@@ -176,3 +176,4 @@ conda-meta/
 TEST-*.ipynb
 CURSOR_*.md
 DATABRICKS_CONNECT_SETUP.md
+0-Parameters-simplot-v1.ipynb
