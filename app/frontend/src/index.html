@@ -1,0 +1,1556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simplot Frozen Potato Digital Twin</title>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/cytoscape@3/dist/cytoscape.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGN SYSTEM — Industrial "Control Tower" theme (matches supply-chain)
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --navy: #1a2332;
+  --navy-light: #243447;
+  --navy-dark: #111922;
+  --steel: #64748b;
+  --steel-light: #94a3b8;
+  --steel-bg: #f1f5f9;
+  --orange: #f59e0b;
+  --orange-hover: #d97706;
+  --green: #10b981;
+  --green-bg: #d1fae5;
+  --red: #ef4444;
+  --red-bg: #fee2e2;
+  --yellow-bg: #fef3c7;
+  --blue: #3b82f6;
+  --blue-bg: #dbeafe;
+  --white: #ffffff;
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,.1);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,.15);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--steel-bg); color: var(--text); display:flex; height:100vh; overflow:hidden; }
+
+/* ─── Sidebar ─────────────────────────────────────────────────────── */
+#sidebar { width: 220px; background: var(--navy); color: #fff; display:flex; flex-direction:column; flex-shrink:0; }
+#sidebar .logo { padding: 20px; border-bottom: 1px solid var(--navy-light); }
+#sidebar .logo h1 { font-size: 15px; font-weight: 700; letter-spacing: .5px; }
+#sidebar .logo span { font-size: 11px; color: var(--steel-light); display:block; margin-top:4px; }
+#sidebar nav { flex:1; padding: 12px 0; overflow-y:auto; }
+#sidebar nav a { display:flex; align-items:center; gap:10px; padding: 10px 20px; color: var(--steel-light); text-decoration:none; font-size:13px; transition: all .15s; border-left: 3px solid transparent; cursor:pointer; }
+#sidebar nav a:hover { background: var(--navy-light); color:#fff; }
+#sidebar nav a.active { background: var(--navy-light); color:#fff; border-left-color: var(--orange); }
+#sidebar nav a .icon { width:18px; text-align:center; font-size:15px; }
+#sidebar .sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--navy-light); font-size: 10px; color: var(--steel); }
+
+/* ─── Main Content ────────────────────────────────────────────────── */
+#main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+#topbar { background:#fff; border-bottom:1px solid var(--border); padding:12px 24px; display:flex; align-items:center; justify-content:space-between; }
+#topbar h2 { font-size:18px; font-weight:600; }
+#topbar .status-dot { width:8px; height:8px; border-radius:50%; background:var(--green); display:inline-block; margin-right:6px; }
+#content { flex:1; overflow-y:auto; padding:24px; }
+.page { display:none; }
+.page.active { display:block; height:100%; }
+
+/* ─── Cards & KPIs ────────────────────────────────────────────────── */
+.kpi-row { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:24px; }
+.kpi-card { background:#fff; border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); border-top:3px solid var(--navy); }
+.kpi-card.orange { border-top-color: var(--orange); }
+.kpi-card.green { border-top-color: var(--green); }
+.kpi-card.red { border-top-color: var(--red); }
+.kpi-card.blue { border-top-color: var(--blue); }
+.kpi-card .kpi-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; }
+.kpi-card .kpi-value { font-size:28px; font-weight:700; margin:6px 0 2px; }
+.kpi-card .kpi-sub { font-size:11px; color:var(--text-muted); }
+
+.card { background:#fff; border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); margin-bottom:20px; }
+.card h3 { font-size:14px; font-weight:600; margin-bottom:12px; color:var(--navy); }
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+@media(max-width:900px) { .grid-2 { grid-template-columns:1fr; } }
+
+/* ─── Tables ──────────────────────────────────────────────────────── */
+.tbl-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th { background:var(--steel-bg); color:var(--text-muted); font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:.5px; padding:10px 12px; text-align:left; }
+td { padding:10px 12px; border-bottom:1px solid var(--border); }
+tr:hover td { background:#f8fafc; }
+
+/* ─── Badges ──────────────────────────────────────────────────────── */
+.badge { display:inline-block; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:600; }
+.badge-healthy, .badge-operational { background:var(--green-bg); color:#065f46; }
+.badge-warning { background:var(--yellow-bg); color:#92400e; }
+.badge-critical, .badge-broken { background:var(--red-bg); color:#991b1b; }
+.badge-impacted { background:#fef3c7; color:#92400e; }
+.badge-unknown { background:#f3f4f6; color:#6b7280; }
+
+/* ─── Buttons ─────────────────────────────────────────────────────── */
+.btn { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:var(--radius); font-size:13px; font-weight:500; cursor:pointer; border:1px solid var(--border); background:#fff; color:var(--text); transition:all .15s; }
+.btn:hover { background:var(--steel-bg); }
+.btn-primary { background:var(--navy); color:#fff; border-color:var(--navy); }
+.btn-primary:hover { background:var(--navy-light); }
+.btn-orange { background:var(--orange); color:#fff; border-color:var(--orange); }
+.btn-orange:hover { background:var(--orange-hover); }
+.btn-danger { background:var(--red); color:#fff; border-color:var(--red); }
+.btn-sm { padding:4px 10px; font-size:11px; }
+.btn-group { display:flex; gap:8px; flex-wrap:wrap; }
+
+/* ─── Cytoscape containers ───────────────────────────────────────── */
+.cy-container { width:100%; height:500px; background:#1a1a2e; border-radius:var(--radius); position:relative; }
+.cy-container .controls { position:absolute; top:10px; right:10px; z-index:10; display:flex; gap:6px; }
+.cy-container .legend { position:absolute; bottom:10px; left:10px; z-index:10; background:rgba(0,0,0,.7); padding:10px; border-radius:var(--radius); color:#fff; font-size:11px; }
+.cy-container .legend-item { display:flex; align-items:center; gap:6px; margin:4px 0; }
+.cy-container .legend-dot { width:10px; height:10px; border-radius:50%; }
+.node-sidebar { position:absolute; top:0; right:0; width:280px; height:100%; background:rgba(26,35,50,.95); color:#fff; padding:16px; overflow-y:auto; z-index:20; border-left:2px solid var(--orange); }
+.node-sidebar h4 { font-size:14px; margin-bottom:12px; }
+.node-sidebar .close-btn { position:absolute; top:8px; right:8px; cursor:pointer; background:none; border:none; color:#fff; font-size:16px; }
+.node-sidebar .data-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(255,255,255,.1); font-size:12px; }
+
+/* ─── 3D Viewer ───────────────────────────────────────────────────── */
+#three-canvas { width:100%; height:620px; background:#0d1117; border-radius:var(--radius); position:relative; overflow:hidden; }
+.viewer-controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:center; }
+.viewer-legend { position:absolute; bottom:12px; left:12px; z-index:10; background:rgba(13,17,23,.88); backdrop-filter:blur(6px); padding:12px 16px; border-radius:var(--radius); color:#fff; font-size:11px; border:1px solid rgba(255,255,255,.08); }
+.viewer-legend .vl-title { font-weight:700; font-size:10px; margin-bottom:6px; color:var(--steel-light); text-transform:uppercase; letter-spacing:.5px; }
+.viewer-legend .vl-row { display:flex; align-items:center; gap:8px; margin:3px 0; }
+.viewer-legend .vl-dot { width:10px; height:10px; flex-shrink:0; }
+.viewer-legend .vl-sep { height:1px; background:rgba(255,255,255,.08); margin:6px 0; }
+.component-panel { position:fixed; top:80px; right:24px; width:300px; background:#fff; border-radius:var(--radius); box-shadow:var(--shadow-lg); padding:20px; z-index:100; border-top:3px solid var(--orange); }
+.component-panel .close-btn { position:absolute; top:8px; right:12px; cursor:pointer; background:none; border:1px solid var(--border); border-radius:4px; padding:2px 8px; font-size:14px; }
+.component-panel .data-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border); font-size:13px; }
+.component-panel .data-row .label { color:var(--text-muted); }
+.viewer-instructions { margin-top:12px; font-size:12px; color:var(--text-muted); }
+
+/* ─── SPARQL & RDF Editor ─────────────────────────────────────────── */
+textarea.code-area { width:100%; font-family:'Fira Code', 'Consolas', monospace; font-size:13px; background:#1e293b; color:#e2e8f0; border:1px solid var(--border); border-radius:var(--radius); padding:12px; resize:vertical; min-height:150px; }
+textarea.code-area:focus { outline:2px solid var(--blue); }
+.results-table { margin-top:12px; max-height:400px; overflow:auto; }
+
+/* ─── Model Library ───────────────────────────────────────────────── */
+.model-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px; }
+.model-card { background:#fff; border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); border-left:3px solid var(--blue); cursor:pointer; transition: transform .1s; }
+.model-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-lg); }
+.model-card h4 { font-size:14px; margin-bottom:6px; }
+.model-card p { font-size:12px; color:var(--text-muted); margin-bottom:8px; }
+.model-card .meta { font-size:10px; color:var(--steel); }
+.model-card.template { border-left-color: var(--green); }
+.model-card.oil-gas { border-left-color: var(--orange); }
+.model-card.manufacturing { border-left-color: #8b5cf6; }
+
+/* ─── Context menu (for graph editor) ─────────────────────────────── */
+.ctx-menu { position:absolute; z-index:50; background:#fff; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-lg); min-width:160px; padding:4px 0; display:none; }
+.ctx-menu .ctx-item { padding:8px 16px; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:8px; }
+.ctx-menu .ctx-item:hover { background:var(--steel-bg); }
+.ctx-menu .ctx-sep { border-top:1px solid var(--border); margin:4px 0; }
+
+/* ─── Loading spinner ─────────────────────────────────────────────── */
+.spinner { display:inline-block; width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--navy); border-radius:50%; animation:spin .6s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.loading-overlay { display:flex; align-items:center; justify-content:center; gap:10px; padding:40px; color:var(--text-muted); font-size:14px; }
+</style>
+</head>
+<body>
+
+<!-- ═══ Sidebar ═══ -->
+<div id="sidebar">
+  <div class="logo">
+    <h1>Frozen Potato</h1>
+    <span>Digital Twin Platform</span>
+  </div>
+  <nav>
+    <a class="active" onclick="switchTab('dashboard')"><span class="icon"><i data-lucide="layout-dashboard" style="width:16px;height:16px"></i></span> Dashboard</a>
+    <a onclick="switchTab('graph-viewer')"><span class="icon"><i data-lucide="git-branch" style="width:16px;height:16px"></i></span> Graph Viewer</a>
+    <a onclick="switchTab('graph-editor')"><span class="icon"><i data-lucide="pencil" style="width:16px;height:16px"></i></span> Graph Editor</a>
+    <a onclick="switchTab('viewer-3d')"><span class="icon"><i data-lucide="box" style="width:16px;height:16px"></i></span> 3D Viewer</a>
+    <a onclick="switchTab('model-library')"><span class="icon"><i data-lucide="library" style="width:16px;height:16px"></i></span> Model Library</a>
+    <a onclick="switchTab('rdf-editor')"><span class="icon"><i data-lucide="file-code" style="width:16px;height:16px"></i></span> RDF Editor</a>
+    <a onclick="switchTab('sparql')"><span class="icon"><i data-lucide="database" style="width:16px;height:16px"></i></span> SPARQL</a>
+    <a onclick="switchTab('telemetry')"><span class="icon"><i data-lucide="activity" style="width:16px;height:16px"></i></span> Telemetry</a>
+  </nav>
+  <div class="sidebar-footer">
+    Simplot Digital Twin v2.0<br>
+    Powered by Databricks + Lakebase
+  </div>
+</div>
+
+<!-- ═══ Main ═══ -->
+<div id="main">
+  <div id="topbar">
+    <h2 id="page-title"><span class="status-dot"></span> Dashboard</h2>
+    <div style="font-size:12px;color:var(--text-muted)" id="clock"></div>
+  </div>
+  <div id="content">
+
+    <!-- ─── Dashboard ─── -->
+    <div class="page active" id="page-dashboard">
+      <div class="kpi-row" id="dash-kpis"></div>
+      <div class="grid-2">
+        <div class="card"><h3>Sensor Readings (Oil Temp)</h3><canvas id="chart-oil-temp" height="200"></canvas></div>
+        <div class="card"><h3>Component Status Distribution</h3><canvas id="chart-status-dist" height="200"></canvas></div>
+      </div>
+      <div class="card"><h3>Recent Telemetry</h3><div class="tbl-wrap" id="dash-telemetry-table"></div></div>
+    </div>
+
+    <!-- ─── Graph Viewer ─── -->
+    <div class="page" id="page-graph-viewer">
+      <div class="btn-group" style="margin-bottom:12px">
+        <button class="btn btn-primary" onclick="loadGraphViewer()">Refresh</button>
+        <button class="btn" onclick="gvFit()">Fit to View</button>
+        <button class="btn" onclick="gvZoom(1)">Zoom In</button>
+        <button class="btn" onclick="gvZoom(-1)">Zoom Out</button>
+        <span style="display:inline-block;width:1px;height:24px;background:var(--border);margin:0 4px"></span>
+        <button class="btn" onclick="gvLayoutPreset()">Flow Layout</button>
+        <button class="btn" onclick="gvLayoutCose()">Organic Layout</button>
+      </div>
+      <div style="position:relative">
+        <div class="cy-container" id="cy-viewer" style="height:560px"></div>
+        <div id="gv-legend" style="position:absolute;bottom:10px;left:10px;z-index:10;background:rgba(13,17,23,.88);backdrop-filter:blur(6px);padding:12px 16px;border-radius:8px;color:#fff;font-size:11px;border:1px solid rgba(255,255,255,.08)">
+          <div style="font-weight:700;font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Production Lines</div>
+          <div style="display:flex;align-items:center;gap:8px;margin:3px 0"><div style="width:14px;height:4px;border-radius:2px;background:#3498db"></div> French Fries</div>
+          <div style="display:flex;align-items:center;gap:8px;margin:3px 0"><div style="width:14px;height:4px;border-radius:2px;background:#e67e22"></div> Hash Browns</div>
+          <div style="display:flex;align-items:center;gap:8px;margin:3px 0"><div style="width:14px;height:4px;border-radius:2px;background:#9b59b6"></div> Wedges</div>
+          <div style="height:1px;background:rgba(255,255,255,.08);margin:6px 0"></div>
+          <div style="font-weight:700;font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Health Status</div>
+          <div style="display:flex;align-items:center;gap:8px;margin:3px 0"><div style="width:10px;height:10px;border-radius:50%;background:#10b981"></div> Healthy</div>
+          <div style="display:flex;align-items:center;gap:8px;margin:3px 0"><div style="width:10px;height:10px;border-radius:50%;background:#f59e0b"></div> Warning</div>
+          <div style="display:flex;align-items:center;gap:8px;margin:3px 0"><div style="width:10px;height:10px;border-radius:50%;background:#ef4444;box-shadow:0 0 6px #ef4444"></div> Critical</div>
+          <div style="display:flex;align-items:center;gap:8px;margin:3px 0"><div style="width:10px;height:10px;border-radius:50%;background:#3b82f6"></div> No Data</div>
+        </div>
+        <div class="node-sidebar" id="gv-sidebar" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- ─── Graph Editor ─── -->
+    <div class="page" id="page-graph-editor">
+      <div class="btn-group" style="margin-bottom:12px">
+        <button class="btn btn-primary" onclick="editorAddNode()">Add Node</button>
+        <button class="btn" onclick="editorAddEdge()">Add Edge</button>
+        <button class="btn btn-orange" onclick="editorExport()">Export as Turtle</button>
+        <button class="btn" onclick="editorClear()">Clear</button>
+      </div>
+      <div style="position:relative">
+        <div class="cy-container" id="cy-editor" style="background:var(--navy-dark);background-image:radial-gradient(circle,#2a3a52 1px,transparent 1px);background-size:20px 20px;"></div>
+        <div class="legend" id="ge-legend" style="position:absolute;bottom:10px;left:10px;z-index:10;background:rgba(0,0,0,.7);padding:10px;border-radius:var(--radius);color:#fff;font-size:11px;"></div>
+      </div>
+      <div class="ctx-menu" id="ctx-menu">
+        <div class="ctx-item" onclick="ctxEditLabel()">Rename</div>
+        <div class="ctx-item" onclick="ctxChangeType()">Change Type</div>
+        <div class="ctx-sep"></div>
+        <div class="ctx-item" style="color:var(--red)" onclick="ctxDelete()">Delete</div>
+      </div>
+    </div>
+
+    <!-- ─── 3D Viewer ─── -->
+    <div class="page" id="page-viewer-3d">
+      <div class="viewer-controls">
+        <button class="btn" onclick="focus3DLine(0)" style="border-left:3px solid #3498db">French Fries</button>
+        <button class="btn" onclick="focus3DLine(1)" style="border-left:3px solid #e67e22">Hash Browns</button>
+        <button class="btn" onclick="focus3DLine(2)" style="border-left:3px solid #9b59b6">Wedges</button>
+        <button class="btn" onclick="reset3DCamera()">Reset View</button>
+        <button class="btn" id="btn-flow" onclick="toggle3DFlow()">Pause Flow</button>
+      </div>
+      <div id="three-canvas">
+        <div class="viewer-legend">
+          <div class="vl-title">Health Status</div>
+          <div class="vl-row"><div class="vl-dot" style="background:#44ff88;border-radius:50%"></div> Healthy</div>
+          <div class="vl-row"><div class="vl-dot" style="background:#ffaa00;border-radius:50%"></div> Warning</div>
+          <div class="vl-row"><div class="vl-dot" style="background:#ff4444;border-radius:50%;box-shadow:0 0 6px #ff4444"></div> Critical</div>
+          <div class="vl-sep"></div>
+          <div class="vl-title">Equipment Type</div>
+          <div class="vl-row"><div class="vl-dot" style="background:#aabbcc;border-radius:50%"></div> Tank (Wash/Blanch)</div>
+          <div class="vl-row"><div class="vl-dot" style="background:#8899aa;border-radius:2px"></div> Machine (Cut/Form)</div>
+          <div class="vl-row"><div class="vl-dot" style="background:#ccaa77;border-radius:2px;box-shadow:inset 0 0 4px #ff6600"></div> Fryer</div>
+          <div class="vl-row"><div class="vl-dot" style="background:#8899cc;border-radius:2px;box-shadow:inset 0 0 4px #2266ff"></div> IQF Freezer</div>
+        </div>
+      </div>
+      <div id="component-panel-3d"></div>
+      <div class="viewer-instructions">
+        Left-click + drag to rotate | Right-click + drag to pan | Scroll to zoom | Click on equipment for telemetry
+      </div>
+    </div>
+
+    <!-- ─── Model Library ─── -->
+    <div class="page" id="page-model-library">
+      <div class="btn-group" style="margin-bottom:16px">
+        <button class="btn btn-primary" onclick="loadModels()">Refresh</button>
+        <button class="btn btn-orange" onclick="createModelPrompt()">New Model</button>
+      </div>
+      <div class="model-grid" id="model-grid"></div>
+    </div>
+
+    <!-- ─── RDF Editor ─── -->
+    <div class="page" id="page-rdf-editor">
+      <div class="card">
+        <h3>Turtle RDF Editor</h3>
+        <textarea class="code-area" id="rdf-editor-area" rows="20" placeholder="Enter Turtle RDF content here...">@prefix dt: <http://databricks.com/digitaltwin/> .
+@prefix ex: <http://example.com/factory/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+ex:line1 a ex:Line .
+ex:machine1 a ex:Machine ;
+    ex:inLine ex:line1 .
+ex:component1 a ex:Component ;
+    ex:componentIn ex:machine1 .</textarea>
+        <div class="btn-group" style="margin-top:12px">
+          <button class="btn btn-primary" onclick="validateRDF()">Validate</button>
+          <button class="btn btn-orange" onclick="saveRDFModel()">Save as Model</button>
+          <button class="btn" onclick="loadIntoViewer()">Load into Viewer</button>
+        </div>
+        <div id="rdf-validation-result" style="margin-top:12px;font-size:13px;"></div>
+      </div>
+    </div>
+
+    <!-- ─── SPARQL ─── -->
+    <div class="page" id="page-sparql">
+      <div class="card">
+        <h3>SPARQL Query</h3>
+        <textarea class="code-area" id="sparql-area" rows="10" placeholder="Enter SPARQL query...">SELECT ?s ?p ?o
+WHERE {
+  ?s ?p ?o .
+}
+LIMIT 50</textarea>
+        <div class="btn-group" style="margin-top:12px">
+          <button class="btn btn-primary" onclick="executeSPARQL()">Execute</button>
+          <button class="btn" onclick="clearSPARQL()">Clear Results</button>
+        </div>
+      </div>
+      <div class="card" id="sparql-results" style="display:none">
+        <h3>Results <span id="sparql-count" style="font-weight:400;color:var(--text-muted);font-size:12px"></span></h3>
+        <div class="tbl-wrap results-table" id="sparql-table"></div>
+      </div>
+    </div>
+
+    <!-- ─── Telemetry ─── -->
+    <div class="page" id="page-telemetry">
+      <div class="btn-group" style="margin-bottom:16px">
+        <button class="btn btn-primary" onclick="loadTelemetry()">Refresh</button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="tel-auto-refresh" checked onchange="toggleTelemetryAuto()"> Auto-refresh (30s)</label>
+        <select id="tel-source" onchange="loadTelemetry()" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px">
+          <option value="latest">Bronze Table</option>
+          <option value="triples">RDF Triples</option>
+        </select>
+      </div>
+      <div class="card"><h3>Sensor Readings</h3><div class="tbl-wrap" id="telemetry-table"></div></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLOBAL STATE
+   ═══════════════════════════════════════════════════════════════════════════ */
+const state = {
+  activeTab: 'dashboard',
+  telemetryData: [],
+  structureData: null,
+  stateData: null,
+  models: [],
+  editorNodes: 0,
+  showFlow: true,
+  threeInited: false,
+  gvInited: false,
+  geInited: false,
+  telemetryInterval: null,
+};
+let cyViewer = null, cyEditor = null;
+let threeScene, threeCamera, threeRenderer, threeControls, threeAnimId, threeLabelRenderer, threeHoverMesh;
+let threeFlowParticles = [];
+let threeComponentMeshes = {};
+let selectedComponent3D = null;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   API HELPERS
+   ═══════════════════════════════════════════════════════════════════════════ */
+async function apiFetch(path, opts) {
+  try {
+    const r = await fetch(path, opts);
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    const ct = r.headers.get('content-type') || '';
+    return ct.includes('json') ? r.json() : r.text();
+  } catch (e) {
+    console.error('API error:', path, e);
+    throw e;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NAVIGATION
+   ═══════════════════════════════════════════════════════════════════════════ */
+const TAB_TITLES = {
+  'dashboard': 'Dashboard',
+  'graph-viewer': 'Graph Viewer',
+  'graph-editor': 'Graph Editor',
+  'viewer-3d': '3D Factory Viewer',
+  'model-library': 'Model Library',
+  'rdf-editor': 'RDF Editor',
+  'sparql': 'SPARQL Query',
+  'telemetry': 'Telemetry',
+};
+
+function switchTab(tab) {
+  state.activeTab = tab;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + tab)?.classList.add('active');
+  document.querySelectorAll('#sidebar nav a').forEach(a => a.classList.remove('active'));
+  document.querySelectorAll('#sidebar nav a').forEach(a => {
+    if (a.getAttribute('onclick')?.includes(tab)) a.classList.add('active');
+  });
+  document.getElementById('page-title').innerHTML = '<span class="status-dot"></span> ' + (TAB_TITLES[tab] || tab);
+
+  // Lazy init
+  if (tab === 'dashboard') loadDashboard();
+  if (tab === 'graph-viewer' && !state.gvInited) loadGraphViewer();
+  if (tab === 'graph-editor' && !state.geInited) initGraphEditor();
+  if (tab === 'viewer-3d' && !state.threeInited) init3DViewer();
+  if (tab === 'model-library') loadModels();
+  if (tab === 'telemetry') loadTelemetry();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DASHBOARD
+   ═══════════════════════════════════════════════════════════════════════════ */
+let chartOilTemp = null, chartStatusDist = null;
+
+async function loadDashboard() {
+  try {
+    const [telData, structData] = await Promise.all([
+      apiFetch('/api/telemetry/latest'),
+      apiFetch('/api/digital-twin/structure').catch(() => null),
+    ]);
+    state.telemetryData = telData.data || [];
+
+    // KPI cards
+    const count = state.telemetryData.length;
+    const avgOil = count ? (state.telemetryData.reduce((a, d) => a + d.sensorAReading, 0) / count).toFixed(1) : '—';
+    const avgBelt = count ? (state.telemetryData.reduce((a, d) => a + d.sensorCReading, 0) / count).toFixed(2) : '—';
+    const alerts = state.telemetryData.filter(d => d.sensorAReading > 180).length;
+    const nodeCount = structData?.elements?.filter(e => !e.data.source)?.length || '—';
+
+    document.getElementById('dash-kpis').innerHTML = `
+      <div class="kpi-card blue"><div class="kpi-label">Components</div><div class="kpi-value">${nodeCount}</div><div class="kpi-sub">From digital twin model</div></div>
+      <div class="kpi-card"><div class="kpi-label">Active Sensors</div><div class="kpi-value">${count}</div><div class="kpi-sub">Reporting in last 30 days</div></div>
+      <div class="kpi-card orange"><div class="kpi-label">Avg Oil Temp</div><div class="kpi-value">${avgOil}&deg;</div><div class="kpi-sub">Across all components</div></div>
+      <div class="kpi-card ${alerts > 0 ? 'red' : 'green'}"><div class="kpi-label">Alerts</div><div class="kpi-value">${alerts}</div><div class="kpi-sub">${alerts > 0 ? 'Components above threshold' : 'All systems normal'}</div></div>
+    `;
+
+    // Oil temp chart
+    const ctx1 = document.getElementById('chart-oil-temp').getContext('2d');
+    if (chartOilTemp) chartOilTemp.destroy();
+    const sorted = [...state.telemetryData].sort((a, b) => a.componentID?.localeCompare?.(b.componentID));
+    chartOilTemp = new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels: sorted.slice(0, 20).map(d => d.componentID),
+        datasets: [{
+          label: 'Oil Temperature',
+          data: sorted.slice(0, 20).map(d => d.sensorAReading),
+          backgroundColor: sorted.slice(0, 20).map(d => d.sensorAReading > 180 ? '#ef4444' : d.sensorAReading > 170 ? '#f59e0b' : '#10b981'),
+          borderRadius: 4,
+        }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: false } } }
+    });
+
+    // Status distribution
+    const ctx2 = document.getElementById('chart-status-dist').getContext('2d');
+    if (chartStatusDist) chartStatusDist.destroy();
+    const healthy = state.telemetryData.filter(d => d.sensorAReading <= 170).length;
+    const warning = state.telemetryData.filter(d => d.sensorAReading > 170 && d.sensorAReading <= 180).length;
+    const critical = state.telemetryData.filter(d => d.sensorAReading > 180).length;
+    chartStatusDist = new Chart(ctx2, {
+      type: 'doughnut',
+      data: {
+        labels: ['Healthy', 'Warning', 'Critical'],
+        datasets: [{ data: [healthy, warning, critical], backgroundColor: ['#10b981', '#f59e0b', '#ef4444'] }]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+
+    // Telemetry table
+    renderTelemetryTable('dash-telemetry-table', state.telemetryData.slice(0, 10));
+  } catch (e) {
+    document.getElementById('dash-kpis').innerHTML = '<div class="loading-overlay">Failed to load dashboard data</div>';
+  }
+}
+
+function renderTelemetryTable(containerId, data) {
+  if (!data.length) { document.getElementById(containerId).innerHTML = '<p style="color:var(--text-muted)">No data</p>'; return; }
+  let html = '<table><tr><th>Component</th><th>Oil Temp</th><th>Water Temp</th><th>Belt Speed</th><th>Freezer Temp</th><th>Status</th></tr>';
+  for (const d of data) {
+    const status = d.sensorAReading > 180 ? 'critical' : d.sensorAReading > 170 ? 'warning' : 'healthy';
+    html += `<tr>
+      <td><strong>${d.componentID}</strong></td>
+      <td>${d.sensorAReading?.toFixed(1) ?? '—'}</td>
+      <td>${d.sensorBReading?.toFixed(1) ?? '—'}</td>
+      <td>${d.sensorCReading?.toFixed(2) ?? '—'}</td>
+      <td>${d.sensorDReading?.toFixed(1) ?? '—'}</td>
+      <td><span class="badge badge-${status}">${status}</span></td>
+    </tr>`;
+  }
+  html += '</table>';
+  document.getElementById(containerId).innerHTML = html;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GRAPH VIEWER (Cytoscape — compound factory topology with health overlay)
+   ═══════════════════════════════════════════════════════════════════════════ */
+const GV_LINES = [
+  { id: 'line-ff', name: 'French Fries', color: '#3498db',
+    stages: [
+      { id: 'FF-WASH', name: 'Washing' }, { id: 'FF-PEEL', name: 'Peeling' },
+      { id: 'FF-CUT', name: 'Cutting' }, { id: 'FF-BLANCH', name: 'Blanching' },
+      { id: 'FF-FRY', name: 'Frying' }, { id: 'FF-IQF', name: 'IQF Freezing' },
+    ]
+  },
+  { id: 'line-hb', name: 'Hash Browns', color: '#e67e22',
+    stages: [
+      { id: 'HB-WASH', name: 'Washing' }, { id: 'HB-PEEL', name: 'Peeling' },
+      { id: 'HB-SHRED', name: 'Shredding' }, { id: 'HB-FORM', name: 'Forming' },
+      { id: 'HB-IQF', name: 'IQF Freezing' },
+    ]
+  },
+  { id: 'line-wg', name: 'Wedges', color: '#9b59b6',
+    stages: [
+      { id: 'WG-WASH', name: 'Washing' }, { id: 'WG-CUT', name: 'Cutting' },
+      { id: 'WG-SEASON', name: 'Seasoning' }, { id: 'WG-FRY', name: 'Frying' },
+      { id: 'WG-IQF', name: 'IQF Freezing' },
+    ]
+  },
+];
+
+const GV_STYLES = [
+  // Factory root container
+  { selector: '#factory', style: {
+    'background-color': '#111922', 'background-opacity': 0.3,
+    'label': 'data(label)', 'text-valign': 'top', 'text-halign': 'center',
+    'color': '#94a3b8', 'font-size': 16, 'font-weight': 700,
+    'text-margin-y': 14, 'padding': 35,
+    'border-width': 1, 'border-color': '#2a3a52', 'shape': 'round-rectangle',
+  }},
+  // Line containers
+  { selector: 'node[type = "line"]', style: {
+    'background-color': '#1a2332', 'background-opacity': 0.5,
+    'label': 'data(label)', 'text-valign': 'top', 'text-halign': 'left',
+    'color': '#e2e8f0', 'font-size': 13, 'font-weight': 600,
+    'text-margin-y': 10, 'text-margin-x': 12, 'padding': 22,
+    'border-width': 2, 'shape': 'round-rectangle',
+  }},
+  { selector: '#line-ff', style: { 'border-color': '#3498db' } },
+  { selector: '#line-hb', style: { 'border-color': '#e67e22' } },
+  { selector: '#line-wg', style: { 'border-color': '#9b59b6' } },
+  // Component nodes — base
+  { selector: 'node[type = "component"]', style: {
+    'shape': 'round-rectangle', 'text-valign': 'center', 'text-halign': 'center',
+    'color': '#ffffff', 'font-size': 11, 'font-weight': 600,
+    'width': 110, 'height': 44, 'border-width': 2,
+    'text-wrap': 'wrap', 'text-max-width': 100, 'label': 'data(displayLabel)',
+  }},
+  // Health colors
+  { selector: 'node[health = "healthy"]', style: { 'background-color': '#065f46', 'border-color': '#10b981' } },
+  { selector: 'node[health = "warning"]', style: { 'background-color': '#92400e', 'border-color': '#f59e0b' } },
+  { selector: 'node[health = "critical"]', style: { 'background-color': '#991b1b', 'border-color': '#ef4444' } },
+  { selector: 'node[health = "unknown"]', style: { 'background-color': '#1e3a5f', 'border-color': '#3b82f6' } },
+  // Broken / impacted overlays
+  { selector: 'node[state = "broken"]', style: { 'background-color': '#7f1d1d', 'border-color': '#dc2626', 'border-width': 3 } },
+  { selector: 'node[state = "impacted"]', style: { 'background-color': '#78350f', 'border-color': '#ea580c', 'border-width': 3 } },
+  // Flow edges
+  { selector: 'edge', style: {
+    'width': 2, 'line-color': '#475569', 'target-arrow-color': '#64748b',
+    'target-arrow-shape': 'triangle', 'curve-style': 'bezier', 'arrow-scale': 1.3,
+    'line-style': 'solid', 'opacity': 0.7,
+  }},
+  // Edge color per line
+  { selector: 'edge[lineColor = "#3498db"]', style: { 'line-color': '#2980b9', 'target-arrow-color': '#3498db' } },
+  { selector: 'edge[lineColor = "#e67e22"]', style: { 'line-color': '#d35400', 'target-arrow-color': '#e67e22' } },
+  { selector: 'edge[lineColor = "#9b59b6"]', style: { 'line-color': '#8e44ad', 'target-arrow-color': '#9b59b6' } },
+  // Selected state
+  { selector: 'node:selected', style: { 'overlay-color': '#f59e0b', 'overlay-opacity': 0.2 } },
+];
+
+function buildGVElements() {
+  var elems = [];
+  var xSp = 155, ySp = 135, xStart = 100, yStart = 70;
+
+  // Factory root
+  elems.push({ data: { id: 'factory', label: 'CALDWELL PROCESSING PLANT', type: 'factory' } });
+
+  GV_LINES.forEach(function(line, li) {
+    // Line compound node
+    elems.push({ data: { id: line.id, label: line.name, type: 'line', parent: 'factory' } });
+
+    line.stages.forEach(function(stage, si) {
+      var health = getComponentHealth(stage.id);
+      elems.push({
+        data: {
+          id: stage.id, label: stage.id,
+          displayLabel: stage.id + '\n' + stage.name,
+          stageName: stage.name, parent: line.id, type: 'component',
+          health: health, lineName: line.name, lineColor: line.color,
+        },
+        position: { x: xStart + si * xSp, y: yStart + li * ySp },
+      });
+
+      // Flow edge
+      if (si < line.stages.length - 1) {
+        elems.push({ data: {
+          id: 'flow-' + stage.id, source: stage.id,
+          target: line.stages[si + 1].id, lineColor: line.color,
+        }});
+      }
+    });
+  });
+  return elems;
+}
+
+async function loadGraphViewer() {
+  var container = document.getElementById('cy-viewer');
+  container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Loading factory topology...</div>';
+
+  // Try to fetch backend state for health overlays
+  try {
+    var stateMap = await apiFetch('/api/digital-twin/state');
+    state.stateData = stateMap;
+  } catch (e) { /* telemetry fallback is fine */ }
+
+  container.innerHTML = '';
+  var elements = buildGVElements();
+
+  cyViewer = cytoscape({
+    container: container,
+    elements: elements,
+    style: GV_STYLES,
+    layout: { name: 'preset' },
+    userZoomingEnabled: true,
+    userPanningEnabled: true,
+    boxSelectionEnabled: false,
+    minZoom: 0.3,
+    maxZoom: 3,
+  });
+
+  // Click component → show sidebar
+  cyViewer.on('tap', 'node[type = "component"]', function(evt) {
+    showGVSidebar(evt.target.data());
+  });
+
+  // Click background → close sidebar
+  cyViewer.on('tap', function(evt) {
+    if (evt.target === cyViewer) {
+      document.getElementById('gv-sidebar').style.display = 'none';
+    }
+  });
+
+  // Fit with padding
+  setTimeout(function() { cyViewer.fit(40); }, 100);
+  state.gvInited = true;
+}
+
+function gvFit() { if (cyViewer) cyViewer.fit(40); }
+function gvZoom(dir) { if (cyViewer) cyViewer.zoom(cyViewer.zoom() + dir * 0.3); }
+
+function gvLayoutPreset() {
+  if (!cyViewer) return;
+  var xSp = 155, ySp = 135, xStart = 100, yStart = 70;
+  GV_LINES.forEach(function(line, li) {
+    line.stages.forEach(function(stage, si) {
+      var node = cyViewer.getElementById(stage.id);
+      if (node.length) node.position({ x: xStart + si * xSp, y: yStart + li * ySp });
+    });
+  });
+  cyViewer.layout({ name: 'preset', fit: true, padding: 40 }).run();
+}
+
+function gvLayoutCose() {
+  if (!cyViewer) return;
+  cyViewer.layout({
+    name: 'cose', animate: true, animationDuration: 600,
+    nodeRepulsion: function() { return 8000; },
+    idealEdgeLength: function() { return 120; },
+    padding: 40, fit: true,
+  }).run();
+}
+
+function showGVSidebar(data) {
+  var el = document.getElementById('gv-sidebar');
+  var tel = state.telemetryData.find(function(t) { return t.componentID === data.id; });
+  var health = data.health || 'unknown';
+  var html = '<button class="close-btn" onclick="document.getElementById(\'gv-sidebar\').style.display=\'none\'">&times;</button>';
+  html += '<h4 style="margin-bottom:2px">' + data.id + '</h4>';
+  html += '<p style="font-size:11px;color:#94a3b8;margin-bottom:12px">' + (data.lineName || '') + ' &mdash; ' + (data.stageName || '') + '</p>';
+  html += '<div class="data-row"><span>Status</span><span class="badge badge-' + health + '">' + health + '</span></div>';
+
+  if (tel) {
+    html += '<hr style="border-color:rgba(255,255,255,.1);margin:10px 0"><h4 style="font-size:12px;margin-bottom:8px">Sensor Data</h4>';
+    html += '<div class="data-row"><span>Oil Temp</span><span>' + (tel.sensorAReading != null ? tel.sensorAReading.toFixed(1) + '°C' : '—') + '</span></div>';
+    html += '<div class="data-row"><span>Water Temp</span><span>' + (tel.sensorBReading != null ? tel.sensorBReading.toFixed(1) + '°C' : '—') + '</span></div>';
+    html += '<div class="data-row"><span>Belt Speed</span><span>' + (tel.sensorCReading != null ? tel.sensorCReading.toFixed(2) + ' m/s' : '—') + '</span></div>';
+    html += '<div class="data-row"><span>Freezer Temp</span><span>' + (tel.sensorDReading != null ? tel.sensorDReading.toFixed(1) + '°C' : '—') + '</span></div>';
+  } else {
+    html += '<p style="color:#64748b;margin-top:10px;font-size:12px">No telemetry data available</p>';
+  }
+  el.innerHTML = html;
+  el.style.display = 'block';
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GRAPH EDITOR (Cytoscape — interactive with context menu)
+   ═══════════════════════════════════════════════════════════════════════════ */
+let editorCtxTarget = null;
+
+function initGraphEditor() {
+  const container = document.getElementById('cy-editor');
+  const types = ['Factory', 'Line', 'Machine', 'Component', 'Sensor'];
+  const colors = ['#1e40af', '#2563eb', '#0891b2', '#059669', '#16a34a'];
+
+  cyEditor = cytoscape({
+    container,
+    elements: [],
+    style: [
+      { selector: 'node', style: { 'background-color': '#2563eb', 'label': 'data(label)', 'color': '#e2e8f0', 'font-size': 12, 'text-valign': 'center', 'shape': 'round-rectangle', 'padding': 10, 'border-width': 2, 'border-color': '#3b82f6' } },
+      { selector: 'edge', style: { 'width': 2, 'line-color': '#94a3b8', 'target-arrow-color': '#64748b', 'target-arrow-shape': 'triangle', 'curve-style': 'bezier', 'label': 'data(label)', 'font-size': 10, 'color': '#94a3b8', 'text-rotation': 'autorotate' } },
+      ...types.map((t, i) => ({ selector: `node[type="${t}"]`, style: { 'background-color': colors[i], 'border-color': colors[i] } })),
+    ],
+    layout: { name: 'preset' },
+    userZoomingEnabled: true,
+    userPanningEnabled: true,
+  });
+
+  // Context menu on right-click
+  cyEditor.on('cxttap', 'node', function(evt) {
+    editorCtxTarget = evt.target;
+    const pos = evt.renderedPosition;
+    const menu = document.getElementById('ctx-menu');
+    const rect = container.getBoundingClientRect();
+    menu.style.left = (rect.left + pos.x) + 'px';
+    menu.style.top = (rect.top + pos.y) + 'px';
+    menu.style.display = 'block';
+  });
+
+  document.addEventListener('click', () => { document.getElementById('ctx-menu').style.display = 'none'; });
+
+  // Legend
+  document.getElementById('ge-legend').innerHTML = types.map((t, i) => `<div class="legend-item"><div class="legend-dot" style="background:${colors[i]}"></div>${t}</div>`).join('');
+
+  state.geInited = true;
+}
+
+function editorAddNode() {
+  const types = ['Factory', 'Line', 'Machine', 'Component', 'Sensor'];
+  const type = prompt('Node type? (' + types.join(', ') + ')', 'Component');
+  if (!type) return;
+  const label = prompt('Node label?', type + '-' + (++state.editorNodes));
+  if (!label) return;
+  const cx = cyEditor.width() / 2, cy = cyEditor.height() / 2;
+  cyEditor.add({ data: { id: 'n' + state.editorNodes, label, type }, position: { x: cx + Math.random() * 100 - 50, y: cy + Math.random() * 100 - 50 } });
+}
+
+function editorAddEdge() {
+  const src = prompt('Source node ID?');
+  const tgt = prompt('Target node ID?');
+  const label = prompt('Relationship (e.g., partOf, dependsOn)?', 'partOf');
+  if (!src || !tgt) return;
+  cyEditor.add({ data: { id: 'e' + Date.now(), source: src, target: tgt, label: label || '' } });
+}
+
+function editorClear() { if (confirm('Clear all nodes and edges?')) cyEditor.elements().remove(); }
+
+function ctxEditLabel() {
+  if (!editorCtxTarget) return;
+  const newLabel = prompt('New label?', editorCtxTarget.data('label'));
+  if (newLabel) editorCtxTarget.data('label', newLabel);
+}
+
+function ctxChangeType() {
+  if (!editorCtxTarget) return;
+  const newType = prompt('New type? (Factory, Line, Machine, Component, Sensor)', editorCtxTarget.data('type'));
+  if (newType) editorCtxTarget.data('type', newType);
+}
+
+function ctxDelete() {
+  if (editorCtxTarget && confirm('Delete this element?')) editorCtxTarget.remove();
+}
+
+function editorExport() {
+  const nodes = cyEditor.nodes();
+  const edges = cyEditor.edges();
+  let ttl = '@prefix ex: <http://example.com/factory/> .\n@prefix dt: <http://databricks.com/digitaltwin/> .\n\n';
+  nodes.forEach(n => {
+    ttl += `ex:${n.data('label').replace(/\s+/g, '_')} a ex:${n.data('type') || 'Thing'} .\n`;
+  });
+  edges.forEach(e => {
+    const src = cyEditor.getElementById(e.data('source'));
+    const tgt = cyEditor.getElementById(e.data('target'));
+    if (src.length && tgt.length) {
+      ttl += `ex:${tgt.data('label').replace(/\s+/g, '_')} ex:${e.data('label') || 'relatedTo'} ex:${src.data('label').replace(/\s+/g, '_')} .\n`;
+    }
+  });
+  document.getElementById('rdf-editor-area').value = ttl;
+  switchTab('rdf-editor');
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   3D VIEWER (Three.js r128 — polished factory with CSS2D labels & shadows)
+   ═══════════════════════════════════════════════════════════════════════════ */
+const LINES_3D = [
+  { name: 'French Fries', color: 0x3498db, hex: '#3498db',
+    stages: [
+      { name: 'Washing',      id: 'FF-WASH',   shape: 'tank' },
+      { name: 'Peeling',      id: 'FF-PEEL',   shape: 'tank' },
+      { name: 'Cutting',      id: 'FF-CUT',    shape: 'machine' },
+      { name: 'Blanching',    id: 'FF-BLANCH',  shape: 'tank' },
+      { name: 'Frying',       id: 'FF-FRY',    shape: 'fryer' },
+      { name: 'IQF Freezing', id: 'FF-IQF',    shape: 'freezer' },
+    ]
+  },
+  { name: 'Hash Browns', color: 0xe67e22, hex: '#e67e22',
+    stages: [
+      { name: 'Washing',      id: 'HB-WASH',   shape: 'tank' },
+      { name: 'Peeling',      id: 'HB-PEEL',   shape: 'tank' },
+      { name: 'Shredding',    id: 'HB-SHRED',  shape: 'machine' },
+      { name: 'Forming',      id: 'HB-FORM',   shape: 'machine' },
+      { name: 'IQF Freezing', id: 'HB-IQF',    shape: 'freezer' },
+    ]
+  },
+  { name: 'Wedges', color: 0x9b59b6, hex: '#9b59b6',
+    stages: [
+      { name: 'Washing',      id: 'WG-WASH',   shape: 'tank' },
+      { name: 'Cutting',      id: 'WG-CUT',    shape: 'machine' },
+      { name: 'Seasoning',    id: 'WG-SEASON', shape: 'machine' },
+      { name: 'Frying',       id: 'WG-FRY',    shape: 'fryer' },
+      { name: 'IQF Freezing', id: 'WG-IQF',    shape: 'freezer' },
+    ]
+  },
+];
+
+/* ── Equipment geometry factory ── */
+function makeEquipGeo(shape) {
+  switch (shape) {
+    case 'tank':    return new THREE.CylinderGeometry(0.65, 0.7, 1.8, 24);
+    case 'fryer':   return new THREE.BoxGeometry(1.6, 1.0, 1.2);
+    case 'freezer': return new THREE.BoxGeometry(1.8, 1.5, 1.3);
+    default:        return new THREE.BoxGeometry(1.1, 1.3, 0.9); // machine
+  }
+}
+
+function makeEquipMat(shape, healthCol) {
+  const base = { color: healthCol, metalness: 0.65, roughness: 0.35, emissive: healthCol, emissiveIntensity: 0.15 };
+  switch (shape) {
+    case 'tank':    return new THREE.MeshStandardMaterial({ ...base, metalness: 0.8, roughness: 0.25 });
+    case 'fryer':   return new THREE.MeshStandardMaterial({ ...base, emissive: 0xff6600, emissiveIntensity: 0.12 });
+    case 'freezer': return new THREE.MeshStandardMaterial({ ...base, emissive: 0x2266ff, emissiveIntensity: 0.12 });
+    default:        return new THREE.MeshStandardMaterial(base);
+  }
+}
+
+/* ── CSS2D label helper ── */
+function makeLabel(text, styles) {
+  const div = document.createElement('div');
+  Object.assign(div.style, {
+    fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",
+    pointerEvents: 'none', userSelect: 'none', whiteSpace: 'nowrap',
+    ...styles,
+  });
+  div.textContent = text;
+  return new THREE.CSS2DObject(div);
+}
+
+/* ── Health helpers ── */
+function getComponentHealth(compId) {
+  const tel = state.telemetryData.find(t => t.componentID === compId);
+  if (!tel) return 'unknown';
+  if (tel.sensorAReading > 180) return 'critical';
+  if (tel.sensorAReading > 170) return 'warning';
+  return 'healthy';
+}
+
+function healthToColor(compId) {
+  const h = getComponentHealth(compId);
+  return h === 'critical' ? 0xff4444 : h === 'warning' ? 0xffaa00 : 0x44ff88;
+}
+
+/* ═══ init3DViewer ═══ */
+function init3DViewer() {
+  const container = document.getElementById('three-canvas');
+  // Preserve the legend overlay, remove old canvases/label layers
+  const legend = container.querySelector('.viewer-legend');
+  container.querySelectorAll('canvas').forEach(c => c.remove());
+  const oldLbl = container.querySelector('[data-label-renderer]');
+  if (oldLbl) oldLbl.remove();
+
+  /* ─── Scene ─── */
+  threeScene = new THREE.Scene();
+  threeScene.background = new THREE.Color(0x0d1117);
+  threeScene.fog = new THREE.FogExp2(0x0d1117, 0.008);
+
+  /* ─── Camera ─── */
+  threeCamera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 250);
+  threeCamera.position.set(5, 22, 40);
+
+  /* ─── WebGL Renderer (shadows + tone mapping) ─── */
+  threeRenderer = new THREE.WebGLRenderer({ antialias: true });
+  threeRenderer.setSize(container.clientWidth, container.clientHeight);
+  threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  threeRenderer.shadowMap.enabled = true;
+  threeRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  threeRenderer.outputEncoding = THREE.sRGBEncoding;
+  threeRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+  threeRenderer.toneMappingExposure = 1.0;
+  container.insertBefore(threeRenderer.domElement, legend);
+
+  /* ─── CSS2D Renderer (HTML labels) ─── */
+  threeLabelRenderer = new THREE.CSS2DRenderer();
+  threeLabelRenderer.setSize(container.clientWidth, container.clientHeight);
+  threeLabelRenderer.domElement.style.position = 'absolute';
+  threeLabelRenderer.domElement.style.top = '0';
+  threeLabelRenderer.domElement.style.left = '0';
+  threeLabelRenderer.domElement.style.pointerEvents = 'none';
+  threeLabelRenderer.domElement.setAttribute('data-label-renderer', '1');
+  container.insertBefore(threeLabelRenderer.domElement, legend);
+
+  /* ─── Controls ─── */
+  threeControls = new THREE.OrbitControls(threeCamera, threeRenderer.domElement);
+  threeControls.enableDamping = true;
+  threeControls.dampingFactor = 0.06;
+  threeControls.minDistance = 8;
+  threeControls.maxDistance = 70;
+  threeControls.maxPolarAngle = Math.PI / 2.1;
+  threeControls.target.set(0, 0, -12);
+
+  /* ─── Lighting ─── */
+  // Hemisphere (sky/ground ambient)
+  const hemi = new THREE.HemisphereLight(0xc8d8e8, 0x1a2a4a, 0.5);
+  hemi.position.set(0, 30, 0);
+  threeScene.add(hemi);
+
+  // Main directional with shadows
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+  dirLight.position.set(25, 30, 20);
+  dirLight.castShadow = true;
+  dirLight.shadow.mapSize.set(2048, 2048);
+  dirLight.shadow.camera.top = 35;
+  dirLight.shadow.camera.bottom = -40;
+  dirLight.shadow.camera.left = -45;
+  dirLight.shadow.camera.right = 45;
+  dirLight.shadow.camera.near = 0.5;
+  dirLight.shadow.camera.far = 80;
+  dirLight.shadow.bias = -0.0005;
+  threeScene.add(dirLight);
+
+  // Fill light
+  const fill = new THREE.DirectionalLight(0x8899bb, 0.35);
+  fill.position.set(-20, 15, -15);
+  threeScene.add(fill);
+
+  // Soft ambient
+  threeScene.add(new THREE.AmbientLight(0xffffff, 0.2));
+
+  // Warm overhead spot
+  const spot = new THREE.SpotLight(0xfff0dd, 0.35, 60, Math.PI / 4, 0.7);
+  spot.position.set(0, 20, -12);
+  threeScene.add(spot);
+
+  /* ─── Factory Floor ─── */
+  const floorGeo = new THREE.PlaneGeometry(100, 65);
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x1a1f2e, metalness: 0.3, roughness: 0.7 });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(0, -2.5, -12);
+  floor.receiveShadow = true;
+  threeScene.add(floor);
+
+  const grid = new THREE.GridHelper(100, 50, 0x2a3a5c, 0x1a2a3c);
+  grid.position.set(0, -2.49, -12);
+  threeScene.add(grid);
+
+  // Back wall
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x0a0e18, metalness: 0.1, roughness: 0.9 });
+  const backWall = new THREE.Mesh(new THREE.PlaneGeometry(100, 18), wallMat);
+  backWall.position.set(0, 6.5, -45);
+  backWall.receiveShadow = true;
+  threeScene.add(backWall);
+
+  /* ─── Build production lines ─── */
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  threeComponentMeshes = {};
+  threeFlowParticles = [];
+  threeHoverMesh = null;
+
+  const STAGE_SP = 5.2; // spacing between stages
+
+  LINES_3D.forEach(function(line, li) {
+    const zBase = li * -14;
+    const cnt = line.stages.length;
+    const lineW = (cnt - 1) * STAGE_SP + 4;
+    const xOff = -(cnt - 1) * STAGE_SP / 2;
+
+    /* ── Line base rail ── */
+    const railGeo = new THREE.BoxGeometry(lineW, 0.15, 4.5);
+    const railMat = new THREE.MeshStandardMaterial({
+      color: line.color, metalness: 0.7, roughness: 0.3,
+      emissive: line.color, emissiveIntensity: 0.08
+    });
+    const rail = new THREE.Mesh(railGeo, railMat);
+    rail.position.set(0, -2.1, zBase);
+    rail.receiveShadow = true;
+    threeScene.add(rail);
+
+    // Subtle edge stripe
+    const edgeGeo = new THREE.BoxGeometry(lineW + 0.4, 0.04, 0.08);
+    const edgeMat = new THREE.MeshStandardMaterial({ color: line.color, emissive: line.color, emissiveIntensity: 0.5 });
+    [-2.3, 2.3].forEach(function(zo) {
+      const e = new THREE.Mesh(edgeGeo, edgeMat);
+      e.position.set(0, -2.02, zBase + zo);
+      threeScene.add(e);
+    });
+
+    /* ── Line name label (CSS2D) ── */
+    const lineLabel = makeLabel(line.name, {
+      background: 'linear-gradient(135deg, ' + line.hex + ', ' + line.hex + 'cc)',
+      padding: '7px 20px', borderRadius: '6px',
+      fontSize: '13px', fontWeight: '700', letterSpacing: '1.5px',
+      textTransform: 'uppercase', color: '#fff',
+      border: '2px solid ' + line.hex,
+      boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+    });
+    lineLabel.position.set(xOff - 2.8, 3, zBase);
+    threeScene.add(lineLabel);
+
+    /* ── Stages ── */
+    line.stages.forEach(function(stage, si) {
+      const xPos = xOff + si * STAGE_SP;
+
+      // Platform
+      const platGeo = new THREE.BoxGeometry(3.2, 0.12, 2.8);
+      const platMat = new THREE.MeshStandardMaterial({
+        color: line.color, metalness: 0.5, roughness: 0.5,
+        emissive: line.color, emissiveIntensity: 0.08
+      });
+      const plat = new THREE.Mesh(platGeo, platMat);
+      plat.position.set(xPos, -1.95, zBase);
+      plat.receiveShadow = true;
+      threeScene.add(plat);
+
+      // Equipment mesh (shape depends on stage type)
+      const hCol = healthToColor(stage.id);
+      const equip = new THREE.Mesh(makeEquipGeo(stage.shape), makeEquipMat(stage.shape, hCol));
+      var eqY = stage.shape === 'tank' ? -0.55 : stage.shape === 'freezer' ? -0.6 : -0.65;
+      equip.position.set(xPos, eqY, zBase);
+      equip.castShadow = true;
+      equip.receiveShadow = true;
+      equip.userData = { compId: stage.id, stageName: stage.name, lineName: line.name, lineColor: line.hex, shape: stage.shape };
+      threeScene.add(equip);
+      threeComponentMeshes[stage.id] = equip;
+
+      // Circular base plate under equipment
+      const baseGeo = new THREE.CylinderGeometry(0.9, 0.95, 0.1, 20);
+      const baseMat = new THREE.MeshStandardMaterial({ color: 0x222233, metalness: 0.8, roughness: 0.2 });
+      const base = new THREE.Mesh(baseGeo, baseMat);
+      base.position.set(xPos, -1.5, zBase);
+      base.castShadow = true;
+      base.receiveShadow = true;
+      threeScene.add(base);
+
+      // Control panel (small box on front)
+      const cpGeo = new THREE.BoxGeometry(0.3, 0.25, 0.06);
+      const cpMat = new THREE.MeshStandardMaterial({ color: 0x333344, metalness: 0.9, roughness: 0.1 });
+      const cp = new THREE.Mesh(cpGeo, cpMat);
+      var cpZ = stage.shape === 'tank' ? 0.72 : (stage.shape === 'freezer' ? 0.67 : 0.47);
+      cp.position.set(xPos + 0.4, -0.5, zBase + cpZ);
+      threeScene.add(cp);
+
+      // Status indicator light
+      const stGeo = new THREE.SphereGeometry(0.1, 16, 16);
+      const stMat = new THREE.MeshStandardMaterial({ color: hCol, emissive: hCol, emissiveIntensity: 2.0 });
+      const stLight = new THREE.Mesh(stGeo, stMat);
+      var stY = stage.shape === 'tank' ? 0.55 : stage.shape === 'freezer' ? 0.4 : 0.25;
+      stLight.position.set(xPos + 0.55, stY, zBase + cpZ);
+      threeScene.add(stLight);
+
+      // Component ID label (CSS2D) — above equipment
+      var lblY = stage.shape === 'tank' ? 1.0 : stage.shape === 'freezer' ? 1.0 : 0.7;
+      const idLabel = makeLabel(stage.id, {
+        background: 'rgba(0,0,0,0.8)', padding: '3px 10px', borderRadius: '4px',
+        fontSize: '11px', fontWeight: '600', color: '#e0e0e0',
+        borderBottom: '2px solid ' + line.hex,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+      });
+      idLabel.position.set(xPos, lblY, zBase);
+      threeScene.add(idLabel);
+
+      // Stage name label (CSS2D) — below platform
+      const stageLabel = makeLabel(stage.name, {
+        background: 'transparent', padding: '0', fontSize: '9px',
+        fontWeight: '500', color: '#778899', letterSpacing: '0.3px',
+      });
+      stageLabel.position.set(xPos, -2.6, zBase + 1.6);
+      threeScene.add(stageLabel);
+
+      /* ── Conveyor belt to next stage ── */
+      if (si < cnt - 1) {
+        var nextX = xOff + (si + 1) * STAGE_SP;
+        var midX = (xPos + nextX) / 2;
+        var beltLen = STAGE_SP - 2;
+
+        // Belt surface (dark rubber)
+        var bGeo = new THREE.BoxGeometry(beltLen, 0.06, 0.55);
+        var bMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.05, roughness: 0.95 });
+        var belt = new THREE.Mesh(bGeo, bMat);
+        belt.position.set(midX, -1.05, zBase);
+        belt.castShadow = true;
+        belt.receiveShadow = true;
+        threeScene.add(belt);
+
+        // Side rails (metallic)
+        var srGeo = new THREE.BoxGeometry(beltLen + 0.3, 0.12, 0.05);
+        var srMat = new THREE.MeshStandardMaterial({ color: 0x999999, metalness: 0.85, roughness: 0.15 });
+        [-0.32, 0.32].forEach(function(zo) {
+          var sr = new THREE.Mesh(srGeo, srMat);
+          sr.position.set(midX, -0.97, zBase + zo);
+          sr.castShadow = true;
+          threeScene.add(sr);
+        });
+
+        // Support legs (4 per segment)
+        var legGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.85, 8);
+        var legMat = new THREE.MeshStandardMaterial({ color: 0x666666, metalness: 0.8, roughness: 0.2 });
+        [-0.6, 0.6].forEach(function(dx) {
+          [-0.22, 0.22].forEach(function(dz) {
+            var leg = new THREE.Mesh(legGeo, legMat);
+            leg.position.set(midX + dx, -1.48, zBase + dz);
+            leg.castShadow = true;
+            threeScene.add(leg);
+          });
+        });
+
+        // Roller details (small cylinders across belt)
+        var rollerGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.5, 8);
+        var rollerMat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.9, roughness: 0.1 });
+        for (var ri = 0; ri < 4; ri++) {
+          var roller = new THREE.Mesh(rollerGeo, rollerMat);
+          roller.rotation.x = Math.PI / 2;
+          roller.position.set(midX - beltLen / 2 + 0.4 + ri * (beltLen / 4), -1.06, zBase);
+          threeScene.add(roller);
+        }
+
+        // Flow particles (3 per conveyor segment)
+        for (var fi = 0; fi < 3; fi++) {
+          var pGeo = new THREE.SphereGeometry(0.12, 12, 12);
+          var pMat = new THREE.MeshStandardMaterial({
+            color: line.color, emissive: line.color, emissiveIntensity: 0.4,
+            metalness: 0.6, roughness: 0.3
+          });
+          var particle = new THREE.Mesh(pGeo, pMat);
+          particle.castShadow = true;
+          particle.userData = {
+            startX: xPos + 1.2,
+            endX: nextX - 1.2,
+            baseY: -0.9,
+            baseZ: zBase,
+            phase: fi / 3,
+            speed: 0.25 + Math.random() * 0.08,
+          };
+          threeScene.add(particle);
+          threeFlowParticles.push(particle);
+        }
+      }
+    }); // end stages
+
+    /* ── Pipe header along back of line ── */
+    var pipeLen = (cnt - 1) * STAGE_SP + 1;
+    var headerGeo = new THREE.CylinderGeometry(0.06, 0.06, pipeLen, 8);
+    var headerMat = new THREE.MeshStandardMaterial({ color: 0x777777, metalness: 0.9, roughness: 0.1 });
+    var header = new THREE.Mesh(headerGeo, headerMat);
+    header.rotation.z = Math.PI / 2;
+    header.position.set(0, -0.2, zBase - 1.8);
+    header.castShadow = true;
+    threeScene.add(header);
+
+    // Pipe supports
+    for (var ps = 0; ps < cnt; ps++) {
+      var psGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.6, 6);
+      var psMat = new THREE.MeshStandardMaterial({ color: 0x666666, metalness: 0.8, roughness: 0.2 });
+      var psMesh = new THREE.Mesh(psGeo, psMat);
+      psMesh.position.set(xOff + ps * STAGE_SP, -0.5, zBase - 1.8);
+      threeScene.add(psMesh);
+    }
+  }); // end lines
+
+  /* ─── Click handler ─── */
+  threeRenderer.domElement.addEventListener('click', function(event) {
+    var rect = threeRenderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, threeCamera);
+
+    var clickable = Object.values(threeComponentMeshes);
+    var intersects = raycaster.intersectObjects(clickable);
+    if (intersects.length > 0) {
+      var ud = intersects[0].object.userData;
+      show3DPanel(ud.compId, ud.stageName, ud.lineName);
+      // Highlight selected
+      clickable.forEach(function(m) {
+        if (m.userData.shape === 'fryer') m.material.emissiveIntensity = 0.12;
+        else if (m.userData.shape === 'freezer') m.material.emissiveIntensity = 0.12;
+        else m.material.emissiveIntensity = 0.15;
+      });
+      intersects[0].object.material.emissiveIntensity = 0.55;
+    }
+  });
+
+  /* ─── Hover handler ─── */
+  threeRenderer.domElement.addEventListener('mousemove', function(event) {
+    var rect = threeRenderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, threeCamera);
+
+    var clickable = Object.values(threeComponentMeshes);
+    var intersects = raycaster.intersectObjects(clickable);
+
+    if (threeHoverMesh && (!intersects.length || threeHoverMesh !== intersects[0].object)) {
+      threeHoverMesh.scale.set(1, 1, 1);
+      threeRenderer.domElement.style.cursor = 'default';
+      threeHoverMesh = null;
+    }
+    if (intersects.length > 0 && getComponentHealth(intersects[0].object.userData.compId) !== 'critical') {
+      threeHoverMesh = intersects[0].object;
+      threeHoverMesh.scale.set(1.1, 1.1, 1.1);
+      threeRenderer.domElement.style.cursor = 'pointer';
+    } else if (intersects.length > 0) {
+      threeRenderer.domElement.style.cursor = 'pointer';
+    }
+  });
+
+  /* ─── Resize ─── */
+  window.addEventListener('resize', function() {
+    if (!threeRenderer) return;
+    var w = container.clientWidth, h = container.clientHeight;
+    threeCamera.aspect = w / h;
+    threeCamera.updateProjectionMatrix();
+    threeRenderer.setSize(w, h);
+    threeLabelRenderer.setSize(w, h);
+  });
+
+  /* ─── Animation loop ─── */
+  var clock = new THREE.Clock();
+  function animate() {
+    threeAnimId = requestAnimationFrame(animate);
+    var elapsed = clock.getElapsedTime();
+    threeControls.update();
+
+    // Animate flow particles along conveyor
+    if (state.showFlow) {
+      threeFlowParticles.forEach(function(p) {
+        var ud = p.userData;
+        var t = ((elapsed * ud.speed + ud.phase) % 1);
+        p.position.x = ud.startX + (ud.endX - ud.startX) * t;
+        p.position.y = ud.baseY + Math.sin(t * Math.PI) * 0.12;
+        p.position.z = ud.baseZ;
+        p.rotation.y = elapsed * 3;
+        p.visible = true;
+      });
+    } else {
+      threeFlowParticles.forEach(function(p) { p.visible = false; });
+    }
+
+    // Pulse critical components
+    Object.values(threeComponentMeshes).forEach(function(mesh) {
+      var health = getComponentHealth(mesh.userData.compId);
+      if (health === 'critical') {
+        var pulse = Math.sin(elapsed * 3) * 0.08 + 1;
+        if (mesh !== threeHoverMesh) mesh.scale.set(pulse, pulse, pulse);
+        mesh.material.emissiveIntensity = 0.3 + Math.sin(elapsed * 3) * 0.2;
+      }
+    });
+
+    threeRenderer.render(threeScene, threeCamera);
+    threeLabelRenderer.render(threeScene, threeCamera);
+  }
+  animate();
+  state.threeInited = true;
+}
+
+function show3DPanel(compId, stageName, lineName) {
+  selectedComponent3D = compId;
+  var tel = state.telemetryData.find(function(t) { return t.componentID === compId; });
+  var panel = document.getElementById('component-panel-3d');
+  var health = getComponentHealth(compId);
+  panel.innerHTML =
+    '<div class="component-panel">' +
+      '<button class="close-btn" onclick="document.getElementById(\'component-panel-3d\').innerHTML=\'\'">&times;</button>' +
+      '<h3 style="font-size:16px;margin-bottom:4px">' + compId + '</h3>' +
+      '<p style="font-size:11px;color:var(--text-muted);margin-bottom:12px">' + lineName + ' &mdash; ' + stageName + '</p>' +
+      '<div class="data-row"><span class="label">Status</span><span class="badge badge-' + health + '">' + health + '</span></div>' +
+      (tel ?
+        '<hr style="margin:10px 0;border-color:var(--border)">' +
+        '<div class="data-row"><span class="label">Oil Temp</span><span>' + (tel.sensorAReading != null ? tel.sensorAReading.toFixed(1) + '&deg;C' : '—') + '</span></div>' +
+        '<div class="data-row"><span class="label">Water Temp</span><span>' + (tel.sensorBReading != null ? tel.sensorBReading.toFixed(1) + '&deg;C' : '—') + '</span></div>' +
+        '<div class="data-row"><span class="label">Belt Speed</span><span>' + (tel.sensorCReading != null ? tel.sensorCReading.toFixed(2) + ' m/s' : '—') + '</span></div>' +
+        '<div class="data-row"><span class="label">Freezer Temp</span><span>' + (tel.sensorDReading != null ? tel.sensorDReading.toFixed(1) + '&deg;C' : '—') + '</span></div>'
+      : '<p style="color:var(--text-muted);margin-top:10px;font-size:12px">No telemetry data available</p>') +
+    '</div>';
+}
+
+function focus3DLine(idx) {
+  var zPositions = [0, -14, -28];
+  threeCamera.position.set(0, 12, zPositions[idx] + 18);
+  threeControls.target.set(0, 0, zPositions[idx]);
+}
+
+function reset3DCamera() {
+  threeCamera.position.set(5, 22, 40);
+  threeControls.target.set(0, 0, -12);
+}
+
+function toggle3DFlow() {
+  state.showFlow = !state.showFlow;
+  document.getElementById('btn-flow').textContent = state.showFlow ? 'Pause Flow' : 'Show Flow';
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MODEL LIBRARY
+   ═══════════════════════════════════════════════════════════════════════════ */
+async function loadModels() {
+  const grid = document.getElementById('model-grid');
+  grid.innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Loading models...</div>';
+
+  try {
+    const [dbModels, localModels] = await Promise.all([
+      apiFetch('/api/rdf-models').catch(() => ({ models: [] })),
+      apiFetch('/api/rdf-models/local-templates').catch(() => ({ templates: [] })),
+    ]);
+
+    const all = [...(localModels.templates || []), ...(dbModels.models || [])];
+    if (!all.length) { grid.innerHTML = '<p style="color:var(--text-muted)">No models found. Create one!</p>'; return; }
+
+    grid.innerHTML = all.map(m => `
+      <div class="model-card ${m.category || ''}" onclick="openModel(${JSON.stringify(m).replace(/"/g, '&quot;')})">
+        <h4>${m.name}</h4>
+        <p>${m.description || 'No description'}</p>
+        <div class="meta">
+          <span class="badge badge-${m.is_template ? 'operational' : 'unknown'}">${m.is_template ? 'Template' : 'User'}</span>
+          ${m.category ? `<span style="margin-left:6px">${m.category}</span>` : ''}
+          ${m.source === 'local-file' ? '<span style="margin-left:6px">Local File</span>' : ''}
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    grid.innerHTML = '<div class="loading-overlay">Failed to load models</div>';
+  }
+}
+
+function openModel(model) {
+  document.getElementById('rdf-editor-area').value = model.content || '';
+  switchTab('rdf-editor');
+}
+
+function createModelPrompt() {
+  const name = prompt('Model name?');
+  if (!name) return;
+  document.getElementById('rdf-editor-area').value = `@prefix ex: <http://example.com/factory/> .\n@prefix dt: <http://databricks.com/digitaltwin/> .\n\n# ${name}\n`;
+  switchTab('rdf-editor');
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RDF EDITOR
+   ═══════════════════════════════════════════════════════════════════════════ */
+function validateRDF() {
+  const content = document.getElementById('rdf-editor-area').value;
+  const result = document.getElementById('rdf-validation-result');
+  if (!content.trim()) { result.innerHTML = '<span style="color:var(--red)">Empty content</span>'; return; }
+
+  // Basic validation: check for @prefix and triple patterns
+  const lines = content.split('\n').filter(l => l.trim() && !l.trim().startsWith('#'));
+  const hasPrefix = lines.some(l => l.includes('@prefix') || l.includes('PREFIX'));
+  const hasTriples = lines.some(l => l.includes(' a ') || l.match(/\s+\w+:\w+\s+/));
+
+  if (hasPrefix && hasTriples) {
+    result.innerHTML = '<span style="color:var(--green)">Syntax appears valid (basic check). Use SPARQL tab for server-side validation.</span>';
+  } else {
+    result.innerHTML = '<span style="color:var(--orange)">Warning: Missing @prefix declarations or triple patterns</span>';
+  }
+}
+
+async function saveRDFModel() {
+  const content = document.getElementById('rdf-editor-area').value;
+  if (!content.trim()) { alert('Editor is empty'); return; }
+  const name = prompt('Model name?', 'My Model');
+  if (!name) return;
+
+  try {
+    await apiFetch('/api/rdf-models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, content, description: 'Created from RDF Editor', category: 'user' }),
+    });
+    alert('Model saved successfully!');
+  } catch (e) {
+    alert('Failed to save model: ' + e.message);
+  }
+}
+
+function loadIntoViewer() {
+  // Note: In the new architecture, we'd need to POST the content and parse server-side.
+  // For now, just switch to viewer and reload from backend.
+  switchTab('graph-viewer');
+  loadGraphViewer();
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SPARQL
+   ═══════════════════════════════════════════════════════════════════════════ */
+async function executeSPARQL() {
+  const query = document.getElementById('sparql-area').value.trim();
+  if (!query) { alert('Enter a SPARQL query'); return; }
+
+  const resultsCard = document.getElementById('sparql-results');
+  const tableDiv = document.getElementById('sparql-table');
+  const countSpan = document.getElementById('sparql-count');
+  resultsCard.style.display = 'block';
+  tableDiv.innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Executing query...</div>';
+
+  try {
+    const result = await apiFetch('/api/sparql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    });
+
+    if (result.error) {
+      tableDiv.innerHTML = `<p style="color:var(--red)">${result.error}</p>`;
+      return;
+    }
+
+    if (result.type === 'SELECT' && result.rows) {
+      countSpan.textContent = `(${result.count} rows)`;
+      let html = '<table><tr>' + result.columns.map(c => `<th>${c}</th>`).join('') + '</tr>';
+      for (const row of result.rows) {
+        html += '<tr>' + result.columns.map(c => `<td>${row[c] ?? ''}</td>`).join('') + '</tr>';
+      }
+      html += '</table>';
+      tableDiv.innerHTML = html;
+    } else if (result.type === 'ASK') {
+      tableDiv.innerHTML = `<p style="font-size:16px;font-weight:600">Result: ${result.result ? 'TRUE' : 'FALSE'}</p>`;
+    } else if (result.type === 'CONSTRUCT') {
+      countSpan.textContent = `(${result.count} triples)`;
+      let html = '<table><tr><th>Subject</th><th>Predicate</th><th>Object</th></tr>';
+      for (const t of result.triples) {
+        html += `<tr><td>${t.s}</td><td>${t.p}</td><td>${t.o}</td></tr>`;
+      }
+      html += '</table>';
+      tableDiv.innerHTML = html;
+    }
+  } catch (e) {
+    tableDiv.innerHTML = `<p style="color:var(--red)">Error: ${e.message}</p>`;
+  }
+}
+
+function clearSPARQL() {
+  document.getElementById('sparql-results').style.display = 'none';
+  document.getElementById('sparql-table').innerHTML = '';
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TELEMETRY
+   ═══════════════════════════════════════════════════════════════════════════ */
+async function loadTelemetry() {
+  const tableDiv = document.getElementById('telemetry-table');
+  tableDiv.innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Loading telemetry...</div>';
+
+  const source = document.getElementById('tel-source').value;
+  const endpoint = source === 'triples' ? '/api/telemetry/triples' : '/api/telemetry/latest';
+
+  try {
+    const data = await apiFetch(endpoint);
+    state.telemetryData = data.data || [];
+    renderTelemetryTable('telemetry-table', state.telemetryData);
+  } catch (e) {
+    tableDiv.innerHTML = `<div class="loading-overlay">Failed to load telemetry: ${e.message}</div>`;
+  }
+}
+
+function toggleTelemetryAuto() {
+  const checked = document.getElementById('tel-auto-refresh').checked;
+  if (state.telemetryInterval) clearInterval(state.telemetryInterval);
+  if (checked) {
+    state.telemetryInterval = setInterval(() => {
+      if (state.activeTab === 'telemetry') loadTelemetry();
+    }, 30000);
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', async function() {
+  // Initialize Lucide icons
+  if (window.lucide) lucide.createIcons();
+
+  // Clock
+  setInterval(() => {
+    document.getElementById('clock').textContent = new Date().toLocaleString();
+  }, 1000);
+
+  // Load initial telemetry data for dashboard
+  try {
+    const tel = await apiFetch('/api/telemetry/latest').catch(() => ({ data: [] }));
+    state.telemetryData = tel.data || [];
+  } catch (e) { /* ignore */ }
+
+  // If no real telemetry matches known component IDs, use simulated data for demo
+  var knownIds = ['FF-WASH','FF-PEEL','FF-CUT','FF-BLANCH','FF-FRY','FF-IQF',
+                  'HB-WASH','HB-PEEL','HB-SHRED','HB-FORM','HB-IQF',
+                  'WG-WASH','WG-CUT','WG-SEASON','WG-FRY','WG-IQF'];
+  var hasRealData = knownIds.some(function(id) {
+    return state.telemetryData.some(function(t) { return t.componentID === id; });
+  });
+  if (!hasRealData) {
+    state.telemetryData = [
+      // French Fries — FF-FRY is CRITICAL (fryer overheating)
+      { componentID: 'FF-WASH',   sensorAReading: 158.2, sensorBReading: 42.1, sensorCReading: 1.25, sensorDReading: -18.5 },
+      { componentID: 'FF-PEEL',   sensorAReading: 162.4, sensorBReading: 38.7, sensorCReading: 1.18, sensorDReading: -19.2 },
+      { componentID: 'FF-CUT',    sensorAReading: 155.8, sensorBReading: 35.2, sensorCReading: 1.32, sensorDReading: -17.8 },
+      { componentID: 'FF-BLANCH', sensorAReading: 168.1, sensorBReading: 95.3, sensorCReading: 0.85, sensorDReading: -20.1 },
+      { componentID: 'FF-FRY',    sensorAReading: 192.4, sensorBReading: 45.6, sensorCReading: 0.72, sensorDReading: -15.3 },
+      { componentID: 'FF-IQF',    sensorAReading: 145.2, sensorBReading: 28.4, sensorCReading: 1.45, sensorDReading: -35.8 },
+      // Hash Browns — HB-SHRED is WARNING
+      { componentID: 'HB-WASH',   sensorAReading: 160.5, sensorBReading: 41.8, sensorCReading: 1.22, sensorDReading: -18.9 },
+      { componentID: 'HB-PEEL',   sensorAReading: 157.3, sensorBReading: 39.2, sensorCReading: 1.15, sensorDReading: -19.5 },
+      { componentID: 'HB-SHRED',  sensorAReading: 174.6, sensorBReading: 44.3, sensorCReading: 1.08, sensorDReading: -16.7 },
+      { componentID: 'HB-FORM',   sensorAReading: 163.8, sensorBReading: 36.9, sensorCReading: 1.28, sensorDReading: -18.2 },
+      { componentID: 'HB-IQF',    sensorAReading: 148.7, sensorBReading: 27.6, sensorCReading: 1.52, sensorDReading: -38.1 },
+      // Wedges — WG-SEASON is WARNING
+      { componentID: 'WG-WASH',   sensorAReading: 159.1, sensorBReading: 43.5, sensorCReading: 1.20, sensorDReading: -17.6 },
+      { componentID: 'WG-CUT',    sensorAReading: 156.4, sensorBReading: 34.8, sensorCReading: 1.35, sensorDReading: -18.4 },
+      { componentID: 'WG-SEASON', sensorAReading: 176.2, sensorBReading: 52.1, sensorCReading: 0.95, sensorDReading: -16.2 },
+      { componentID: 'WG-FRY',    sensorAReading: 165.7, sensorBReading: 46.2, sensorCReading: 0.78, sensorDReading: -15.8 },
+      { componentID: 'WG-IQF',    sensorAReading: 142.3, sensorBReading: 26.9, sensorCReading: 1.48, sensorDReading: -36.5 },
+    ];
+  }
+
+  // Load dashboard
+  loadDashboard();
+
+  // Auto-refresh telemetry
+  toggleTelemetryAuto();
+});
+</script>
+</body>
+</html>

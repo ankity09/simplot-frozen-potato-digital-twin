@@ -1,7 +1,0 @@
-.idea/
-.vscode/
-__pycache__/
-.coverage*
-htmlcov/
-.tox/
-docs/_build/

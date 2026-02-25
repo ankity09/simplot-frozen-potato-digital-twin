@@ -1,0 +1,17 @@
+syntax = "proto2";
+
+message DigitalTwin {
+	optional double oil_temperature = 1;
+	optional double water_temperature = 2;
+	optional double belt_speed = 3;
+	optional double freezer_temperature = 4;
+	optional double moisture_content = 5;
+	optional double product_weight = 6;
+	optional double component_yield_output = 7;
+	optional string timestamp = 8;
+	optional string component_id = 9;
+	optional string stage_id = 10;
+	optional bool damaged_component = 11;
+	optional string abnormal_sensor = 12;
+	optional string line_id = 13;
+}

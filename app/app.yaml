@@ -1,0 +1,32 @@
+command:
+  - uvicorn
+  - backend.main:app
+  - --host
+  - 0.0.0.0
+  - --port
+  - 8000
+env:
+  - name: DATABRICKS_WAREHOUSE_ID
+    valueFrom: sql_warehouse
+  - name: SYNCED_TABLE_FULL_NAME
+    value: frozen_potato.latest_sensor_triples
+  - name: TRIPLE_TABLE_FULL_NAME
+    value: serverless_simplot_v1_catalog.frozen_potato.triples
+  - name: CATALOG
+    value: serverless_simplot_v1_catalog
+  - name: SCHEMA
+    value: frozen_potato
+  - name: TABLE
+    value: potato_sensor_bronze
+  - name: RDF_MODELS_TABLE
+    value: digitaltwin.rdf_models
+resources:
+  - name: sql_warehouse
+    sql_warehouse:
+      id: "55d3a94c50a43f96"
+      permission: CAN_USE
+  - name: database
+    database:
+      instance_name: simplot-frozen-potato
+      database_name: simplot-frozen-potato
+      permission: CAN_CONNECT_AND_CREATE
