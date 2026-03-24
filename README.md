@@ -1,4 +1,18 @@
+<div align="center">
+
+<img src="https://upload.wikimedia.org/wikipedia/en/thumb/0/09/Simplot_logo.svg/1200px-Simplot_logo.svg.png" alt="Simplot" width="200"/>
+
 # Frozen Potato Digital Twin
+
+**An IoT Digital Twin for J.R. Simplot Company's frozen potato manufacturing, built on Databricks**
+
+*Built on [Databricks](https://databricks.com) — [Zerobus](https://docs.databricks.com/) · [Lakebase](https://docs.databricks.com/en/database/lakebase/index.html) · [Unity Catalog](https://docs.databricks.com/en/data-governance/unity-catalog/index.html) · Serverless*
+
+</div>
+
+---
+
+## Overview
 
 An IoT Digital Twin for frozen potato manufacturing, built on the Databricks [Digital Twin Solution Accelerator](https://github.com/databricks-industry-solutions/digital-twin). This demo showcases real-time sensor ingestion via Zerobus, RDF-based knowledge graph mapping, low-latency serving with Lakebase, and an interactive Databricks App for monitoring factory operations.
 
@@ -35,6 +49,28 @@ Potato Factory Sensors (OPC UA / Ignition)
 
 **16 components** across 3 production lines, each with 6 sensor readings (oil temperature, water temperature, belt speed, freezer temperature, moisture content, product weight).
 
+## Features
+
+- **Dashboard** — KPI cards, status indicators, and real-time overview of all production lines
+- **Graph Editor** — Interactive RDF graph visualization powered by Cytoscape.js
+- **Telemetry** — Live sensor readings from the bronze table via Statement Execution API
+- **3D Viewer** — Spatial factory visualization with Three.js and OrbitControls
+- **RDF Editor** — Manage ontology models (Turtle files) with full CRUD operations
+- **Alerts Center** — Monitor component health, warnings, and critical events
+- **Command Center** — Execute SPARQL queries against the knowledge graph
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Ingestion | Zerobus (serverless, gRPC) |
+| Storage | Delta Lake on Unity Catalog |
+| Knowledge Graph | RDF/Turtle ontology + Spark R2R mapper |
+| Serving | Lakebase (managed PostgreSQL) |
+| App | Databricks Apps (FastAPI + HTML/CSS/JS) |
+| Visualization | Chart.js, Cytoscape.js, Three.js |
+| Compute | 100% serverless |
+
 ## Quick Start
 
 ### Prerequisites
@@ -43,36 +79,26 @@ Potato Factory Sensors (OPC UA / Ignition)
 - Lakebase enabled on the workspace
 - Zerobus enabled (for streaming ingest)
 
-### 1. Configure parameters
+### Setup
 
-Open `notebooks/0-Parameters.ipynb` and set your catalog, schema, warehouse ID, and Lakebase instance name.
+1. **Configure parameters** — Open `notebooks/0-Parameters.ipynb` and set your catalog, schema, warehouse ID, and Lakebase instance name.
 
-### 2. Run notebooks in order
+2. **Run notebooks in order** — All notebooks run on **serverless compute** (no cluster required):
 
-All notebooks run on **serverless compute** — no cluster required.
+   ```
+   notebooks/0-Parameters.ipynb                  # Configuration
+   notebooks/1-Create-Sensor-Bronze-Table.ipynb  # Create Delta table + generate synthetic data
+   notebooks/2-Ingest-Data-Zerobus.ipynb         # Stream data via Zerobus
+   notebooks/3-Setup-Mapping-Pipeline.ipynb      # Deploy R2R mapping pipeline (sensor -> RDF triples)
+   notebooks/4-Sync-To-Lakebase.ipynb            # Create Lakebase instance + synced table
+   notebooks/5-Create-App.ipynb                  # Deploy the Databricks App
+   ```
 
-```
-notebooks/0-Parameters.ipynb                  # Configuration
-notebooks/1-Create-Sensor-Bronze-Table.ipynb  # Create Delta table + generate synthetic data
-notebooks/2-Ingest-Data-Zerobus.ipynb         # Stream data via Zerobus
-notebooks/3-Setup-Mapping-Pipeline.ipynb      # Deploy R2R mapping pipeline (sensor -> RDF triples)
-notebooks/4-Sync-To-Lakebase.ipynb            # Create Lakebase instance + synced table
-notebooks/5-Create-App.ipynb                  # Deploy the Databricks App
-```
+3. **Cleanup** — Run `notebooks/6-Cleanup.ipynb` to tear down all resources.
 
-### 3. Access the app
+### Access the App
 
-After notebook 5 completes, the app URL will be printed. The app provides:
-- **Dashboard** with KPI cards and status indicators
-- **Graph Editor** for interactive RDF graph visualization
-- **Telemetry** panel with live sensor readings
-- **3D Viewer** for spatial factory visualization
-- **RDF Editor** for managing ontology models
-- **Alerts Center** and **Command Center** (SPARQL queries)
-
-### 4. Cleanup
-
-Run `notebooks/6-Cleanup.ipynb` to tear down all resources.
+After notebook 5 completes, the app URL will be printed. The app provides a full-featured Digital Twin UI with dashboard, graph editor, telemetry, 3D viewer, RDF editor, alerts center, and command center.
 
 ## Project Structure
 
@@ -126,21 +152,32 @@ Simplot-specific configuration for the Zerobus ingest pipeline:
 - `tables/potato_sensors/schema.proto` — protobuf schema for frozen potato sensor data
 - `.env.template` — credentials template
 
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Ingestion | Zerobus (serverless, gRPC) |
-| Storage | Delta Lake on Unity Catalog |
-| Knowledge Graph | RDF/Turtle ontology + Spark R2R mapper |
-| Serving | Lakebase (managed PostgreSQL) |
-| App | Databricks Apps (FastAPI + HTML/CSS/JS) |
-| Compute | 100% serverless |
-
 ## RDF Namespace
 
 All RDF entities use the namespace `http://example.com/potato-factory/`. Component IRIs follow the pattern `http://example.com/potato-factory/component-{ID}` (e.g., `component-FF-WASH`, `component-HB-SHRED`, `component-WG-FRY`).
 
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Health check (SDK connectivity, Lakebase pool, warehouse) |
+| `GET` | `/api/latest` | Fetch latest RDF triples from Lakebase as Turtle |
+| `GET` | `/api/pit?timestamp=` | Point-in-time triples from Lakehouse as Turtle |
+| `GET` | `/api/digital-twin/structure` | Parse RDF model into Cytoscape graph elements JSON |
+| `GET` | `/api/digital-twin/state` | Parse latest triples into component state map JSON |
+| `POST` | `/api/sparql` | Execute a SPARQL query server-side with rdflib |
+| `GET` | `/api/telemetry/latest` | Latest sensor data from bronze table |
+| `GET` | `/api/telemetry/triples` | Telemetry data from the triples table |
+| `POST` | `/api/rdf-models` | Create a new RDF model (Turtle) |
+| `GET` | `/api/rdf-models` | List all RDF models |
+| `GET` | `/api/rdf-models/local-templates` | List bundled RDF template files |
+| `GET` | `/api/rdf-models/{model_id}` | Get a specific RDF model by ID |
+| `PUT` | `/api/rdf-models/{model_id}` | Update an existing RDF model |
+| `DELETE` | `/api/rdf-models/{model_id}` | Delete an RDF model |
+| `POST` | `/api/telemetry/start-live-feed` | Start the live sensor data feed |
+| `POST` | `/api/telemetry/stop-live-feed` | Stop the live sensor data feed |
+| `GET` | `/api/telemetry/live-feed-status` | Check live feed running status and elapsed time |
+
 ## License
 
-See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Built for demonstration purposes for J.R. Simplot Company. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
