@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://upload.wikimedia.org/wikipedia/en/thumb/0/09/Simplot_logo.svg/1200px-Simplot_logo.svg.png" alt="Simplot" width="200"/>
+<img src="images/simplot-logo.png" alt="Simplot" width="200"/>
 
 # Frozen Potato Digital Twin
 
