@@ -83,3 +83,15 @@ conda-meta/
 # MCP / Playwright
 .mcp.json
 .playwright-mcp/
+
+# Demo scripts / talk tracks
+DEMO_TALK_TRACK.md
+SIMPLOT_DEMO_SCRIPT.md
+VIDEO_SCRIPT_*.md
+REDEPLOYMENT_GUIDE.md
+PLAN.md
+AGENTIC_ROADMAP.md
+CLAUDE.md
+.databricks-resources.json
+targets/
+screenshots/
