@@ -7,26 +7,33 @@ command:
   - 8000
 env:
   - name: DATABRICKS_WAREHOUSE_ID
-    valueFrom: sql_warehouse
+    value: "3b92f48c1700007b"
   - name: SYNCED_TABLE_FULL_NAME
     value: frozen_potato.latest_sensor_triples
   - name: TRIPLE_TABLE_FULL_NAME
-    value: serverless_simplot_v1_catalog.frozen_potato.triples
+    value: ankit_yadav.frozen_potato.triples
   - name: CATALOG
-    value: serverless_simplot_v1_catalog
+    value: ankit_yadav
   - name: SCHEMA
     value: frozen_potato
   - name: TABLE
     value: potato_sensor_bronze
   - name: RDF_MODELS_TABLE
     value: digitaltwin.rdf_models
+  - name: PGHOST
+    value: "ep-snowy-band-d265vqt6.database.us-east-1.cloud.databricks.com"
+  - name: PGPORT
+    value: "5432"
+  - name: PGDATABASE
+    value: "databricks_postgres"
+  - name: PGUSER
+    value: "simplot_app"
+  - name: PGPASSWORD
+    value: "${PGPASSWORD}"
+  - name: PGSSLMODE
+    value: "require"
 resources:
   - name: sql_warehouse
     sql_warehouse:
-      id: "55d3a94c50a43f96"
+      id: "3b92f48c1700007b"
       permission: CAN_USE
-  - name: database
-    database:
-      instance_name: simplot-frozen-potato
-      database_name: simplot-frozen-potato
-      permission: CAN_CONNECT_AND_CREATE

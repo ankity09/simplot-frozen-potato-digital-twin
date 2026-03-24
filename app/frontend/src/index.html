@@ -117,6 +117,10 @@ tr:hover td { background:#f8fafc; }
 
 /* ─── 3D Viewer ───────────────────────────────────────────────────── */
 #three-canvas { width:100%; height:620px; background:#0d1117; border-radius:var(--radius); position:relative; overflow:hidden; }
+#btn-live-feed.active { background:#ef4444 !important; animation: livePulse 1.5s ease-in-out infinite; }
+@keyframes livePulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); } 50% { box-shadow: 0 0 0 6px rgba(239,68,68,0); } }
+.live-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981; margin-right:6px; animation: dotPulse 1s ease-in-out infinite; }
+@keyframes dotPulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
 .viewer-controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:center; }
 .viewer-legend { position:absolute; bottom:12px; left:12px; z-index:10; background:rgba(13,17,23,.88); backdrop-filter:blur(6px); padding:12px 16px; border-radius:var(--radius); color:#fff; font-size:11px; border:1px solid rgba(255,255,255,.08); }
 .viewer-legend .vl-title { font-weight:700; font-size:10px; margin-bottom:6px; color:var(--steel-light); text-transform:uppercase; letter-spacing:.5px; }
@@ -256,6 +260,9 @@ textarea.code-area:focus { outline:2px solid var(--blue); }
         <button class="btn" onclick="focus3DLine(2)" style="border-left:3px solid #9b59b6">Wedges</button>
         <button class="btn" onclick="reset3DCamera()">Reset View</button>
         <button class="btn" id="btn-flow" onclick="toggle3DFlow()">Pause Flow</button>
+        <span style="flex:1"></span>
+        <span id="live-feed-status" style="font-size:11px;color:var(--text-muted);margin-right:8px"></span>
+        <button class="btn" id="btn-live-feed" onclick="toggleDTLiveFeed()" style="background:#10b981;color:#fff;font-weight:600">Start Live Feed</button>
       </div>
       <div id="three-canvas">
         <div class="viewer-legend">
@@ -272,6 +279,13 @@ textarea.code-area:focus { outline:2px solid var(--blue); }
         </div>
       </div>
       <div id="component-panel-3d"></div>
+      <div id="live-telemetry-ticker" style="display:none;background:#0d1117;border:1px solid #1e293b;border-radius:8px;padding:12px 16px;margin-top:8px;font-family:'Space Mono',monospace;font-size:12px;max-height:180px;overflow-y:auto">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+          <span style="color:#10b981;font-weight:700;font-size:13px">LIVE SENSOR FEED</span>
+          <span id="ticker-ts" style="color:#64748b;font-size:11px"></span>
+        </div>
+        <div id="ticker-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px"></div>
+      </div>
       <div class="viewer-instructions">
         Left-click + drag to rotate | Right-click + drag to pan | Scroll to zoom | Click on equipment for telemetry
       </div>
@@ -803,7 +817,7 @@ function editorExport() {
    3D VIEWER (Three.js r128 — polished factory with CSS2D labels & shadows)
    ═══════════════════════════════════════════════════════════════════════════ */
 const LINES_3D = [
-  { name: 'French Fries', color: 0x3498db, hex: '#3498db',
+  { name: 'French Fries', color: 0xDAA520, hex: '#DAA520',
     stages: [
       { name: 'Washing',      id: 'FF-WASH',   shape: 'tank' },
       { name: 'Peeling',      id: 'FF-PEEL',   shape: 'tank' },
@@ -813,7 +827,7 @@ const LINES_3D = [
       { name: 'IQF Freezing', id: 'FF-IQF',    shape: 'freezer' },
     ]
   },
-  { name: 'Hash Browns', color: 0xe67e22, hex: '#e67e22',
+  { name: 'Hash Browns', color: 0xC4956A, hex: '#C4956A',
     stages: [
       { name: 'Washing',      id: 'HB-WASH',   shape: 'tank' },
       { name: 'Peeling',      id: 'HB-PEEL',   shape: 'tank' },
@@ -822,7 +836,7 @@ const LINES_3D = [
       { name: 'IQF Freezing', id: 'HB-IQF',    shape: 'freezer' },
     ]
   },
-  { name: 'Wedges', color: 0x9b59b6, hex: '#9b59b6',
+  { name: 'Wedges', color: 0xB8860B, hex: '#B8860B',
     stages: [
       { name: 'Washing',      id: 'WG-WASH',   shape: 'tank' },
       { name: 'Cutting',      id: 'WG-CUT',    shape: 'machine' },
@@ -1148,8 +1162,8 @@ function init3DViewer() {
         for (var fi = 0; fi < 3; fi++) {
           var pGeo = new THREE.SphereGeometry(0.12, 12, 12);
           var pMat = new THREE.MeshStandardMaterial({
-            color: line.color, emissive: line.color, emissiveIntensity: 0.4,
-            metalness: 0.6, roughness: 0.3
+            color: line.color, emissive: line.color, emissiveIntensity: 0.15,
+            metalness: 0.2, roughness: 0.7
           });
           var particle = new THREE.Mesh(pGeo, pMat);
           particle.castShadow = true;
@@ -1317,6 +1331,120 @@ function reset3DCamera() {
 function toggle3DFlow() {
   state.showFlow = !state.showFlow;
   document.getElementById('btn-flow').textContent = state.showFlow ? 'Pause Flow' : 'Show Flow';
+}
+
+/* ═══ Live Feed for 3D Viewer ═══ */
+let _dtFeedPolling = null;
+
+async function toggleDTLiveFeed() {
+  const btn = document.getElementById('btn-live-feed');
+  const statusEl = document.getElementById('live-feed-status');
+  const ticker = document.getElementById('live-telemetry-ticker');
+  try {
+    const status = await apiFetch('/api/telemetry/live-feed-status');
+    if (status.running) {
+      await apiFetch('/api/telemetry/stop-live-feed', { method: 'POST', headers: {'Content-Type': 'application/json'} });
+      btn.textContent = 'Start Live Feed';
+      btn.classList.remove('active');
+      btn.style.background = '#10b981';
+      statusEl.innerHTML = '';
+      ticker.style.display = 'none';
+      if (_dtFeedPolling) { clearInterval(_dtFeedPolling); _dtFeedPolling = null; }
+    } else {
+      await apiFetch('/api/telemetry/start-live-feed', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ duration: 300 }) });
+      btn.textContent = 'Stop Feed';
+      btn.classList.add('active');
+      btn.style.background = '#ef4444';
+      statusEl.innerHTML = '<span class="live-dot"></span>LIVE';
+      ticker.style.display = 'block';
+      // Poll faster (8s) so updates feel real-time
+      refreshLiveTelemetry();
+      _dtFeedPolling = setInterval(refreshLiveTelemetry, 8000);
+    }
+  } catch(e) {
+    console.error('Live feed toggle error:', e);
+    statusEl.innerHTML = '<span style="color:#ef4444">Feed error</span>';
+  }
+}
+
+function _healthBadge(oilTemp) {
+  if (oilTemp > 180) return '<span style="color:#ff4444;font-weight:700">CRITICAL</span>';
+  if (oilTemp > 170) return '<span style="color:#ffaa00;font-weight:700">WARNING</span>';
+  if (oilTemp > 1) return '<span style="color:#44ff88">OK</span>';
+  return '<span style="color:#64748b">--</span>';
+}
+
+function _renderTicker(data) {
+  const grid = document.getElementById('ticker-grid');
+  const ts = document.getElementById('ticker-ts');
+  if (!grid || !data || !data.length) return;
+  ts.textContent = new Date().toLocaleTimeString();
+  // Show key components: fryers first (most interesting), then IQF freezers
+  const priority = ['FF-FRY','HB-FRY','WG-FRY','FF-IQF','HB-IQF','WG-IQF','FF-BLANCH','FF-WASH','HB-WASH','WG-WASH'];
+  const sorted = [...data].sort((a,b) => {
+    var ai = priority.indexOf(a.componentID), bi = priority.indexOf(b.componentID);
+    if (ai === -1) ai = 99; if (bi === -1) bi = 99;
+    return ai - bi;
+  });
+  grid.innerHTML = sorted.map(function(d) {
+    var oilStr = d.sensorAReading > 1 ? d.sensorAReading.toFixed(1) + '\u00b0C' : '--';
+    var waterStr = d.sensorBReading > 1 ? d.sensorBReading.toFixed(1) + '\u00b0C' : '--';
+    var beltStr = d.sensorCReading > 0.05 ? d.sensorCReading.toFixed(2) + ' m/s' : '--';
+    var freezerStr = d.sensorDReading < -1 ? d.sensorDReading.toFixed(1) + '\u00b0C' : '--';
+    var badge = _healthBadge(d.sensorAReading);
+    return '<div style="background:#1a1f2e;padding:6px 10px;border-radius:6px;border-left:3px solid ' +
+      (d.sensorAReading > 180 ? '#ff4444' : d.sensorAReading > 170 ? '#ffaa00' : '#1e293b') + '">' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:2px">' +
+      '<span style="color:#e2e8f0;font-weight:600;font-size:11px">' + d.componentID + '</span>' + badge + '</div>' +
+      '<div style="color:#94a3b8;font-size:10px;line-height:1.5">' +
+      (oilStr !== '--' ? 'Oil: <span style="color:#f59e0b">' + oilStr + '</span> ' : '') +
+      (waterStr !== '--' ? 'Water: <span style="color:#3b82f6">' + waterStr + '</span> ' : '') +
+      (beltStr !== '--' ? 'Belt: <span style="color:#a78bfa">' + beltStr + '</span> ' : '') +
+      (freezerStr !== '--' ? 'Freezer: <span style="color:#06b6d4">' + freezerStr + '</span>' : '') +
+      '</div></div>';
+  }).join('');
+}
+
+async function refreshLiveTelemetry() {
+  try {
+    const status = await apiFetch('/api/telemetry/live-feed-status');
+    if (!status.running) {
+      const btn = document.getElementById('btn-live-feed');
+      btn.textContent = 'Start Live Feed';
+      btn.classList.remove('active');
+      btn.style.background = '#10b981';
+      document.getElementById('live-feed-status').innerHTML = '';
+      document.getElementById('live-telemetry-ticker').style.display = 'none';
+      if (_dtFeedPolling) { clearInterval(_dtFeedPolling); _dtFeedPolling = null; }
+      return;
+    }
+    const telData = await apiFetch('/api/telemetry/latest');
+    if (telData.data) {
+      state.telemetryData = telData.data;
+      // Update live ticker with all readings
+      _renderTicker(telData.data);
+      // Update 3D equipment colors
+      if (state.threeInited && typeof threeComponentMeshes !== 'undefined') {
+        Object.values(threeComponentMeshes).forEach(function(mesh) {
+          var hCol = healthToColor(mesh.userData.compId);
+          mesh.material.color.setHex(hCol);
+          mesh.material.emissive.setHex(hCol);
+        });
+      }
+      // Update open component panel
+      if (selectedComponent3D) {
+        var panel = document.getElementById('component-panel-3d');
+        if (panel.innerHTML) {
+          var mesh = Object.values(threeComponentMeshes).find(function(m) { return m.userData.compId === selectedComponent3D; });
+          if (mesh) show3DPanel(selectedComponent3D, mesh.userData.stageName, mesh.userData.lineName);
+        }
+      }
+      document.getElementById('live-feed-status').innerHTML =
+        '<span class="live-dot"></span>LIVE &middot; ' + Math.round(status.elapsed_seconds) + 's';
+    }
+  } catch(e) {
+    console.error('Live telemetry refresh error:', e);
+  }
 }
 
 

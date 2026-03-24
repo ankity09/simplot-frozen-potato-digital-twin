@@ -3,7 +3,8 @@ Frozen Potato Digital Twin — FastAPI Backend
 ~600 lines | 15 endpoints: triples, RDF parsing, telemetry, RDF models CRUD, SPARQL, health
 """
 
-import asyncio, json, os, re, logging, html, glob as globmod
+import asyncio, json, math, os, re, logging, html, glob as globmod
+import time as _time_feed
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 from decimal import Decimal
@@ -14,6 +15,7 @@ import rdflib
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
+from pydantic import BaseModel
 
 import psycopg2
 from psycopg2.pool import ThreadedConnectionPool
@@ -78,6 +80,10 @@ _pg_pool: Optional[ThreadedConnectionPool] = None
 
 
 def _get_pg_token() -> str:
+    # Use PGPASSWORD env var if set (password auth), else fall back to OAuth
+    pw = os.getenv("PGPASSWORD")
+    if pw:
+        return pw
     hf = w.config._header_factory
     if callable(hf):
         r = hf()
@@ -716,6 +722,125 @@ async def delete_rdf_model(model_id: int):
     if not row:
         raise HTTPException(404, "Model not found")
     return {"message": "Model deleted successfully"}
+
+
+# ─── Digital Twin Live Feed Simulation ────────────────────────────────────────
+
+_dt_live_feed_task = None
+_dt_live_feed_running = False
+_dt_live_feed_start_time = 0.0
+
+_DT_LINES = [
+    {"line": "FF", "name": "French Fries", "components": [
+        {"id": "FF-WASH", "stage": "Washing", "base_oil": 0, "base_water": 38, "base_belt": 1.2, "base_freezer": 0},
+        {"id": "FF-PEEL", "stage": "Peeling", "base_oil": 0, "base_water": 42, "base_belt": 1.0, "base_freezer": 0},
+        {"id": "FF-CUT", "stage": "Cutting", "base_oil": 0, "base_water": 35, "base_belt": 1.5, "base_freezer": 0},
+        {"id": "FF-BLANCH", "stage": "Blanching", "base_oil": 0, "base_water": 85, "base_belt": 0.8, "base_freezer": 0},
+        {"id": "FF-FRY", "stage": "Frying", "base_oil": 175, "base_water": 0, "base_belt": 0.6, "base_freezer": 0},
+        {"id": "FF-IQF", "stage": "IQF Freezing", "base_oil": 0, "base_water": 0, "base_belt": 0.4, "base_freezer": -18},
+    ]},
+    {"line": "HB", "name": "Hash Browns", "components": [
+        {"id": "HB-WASH", "stage": "Washing", "base_oil": 0, "base_water": 40, "base_belt": 1.1, "base_freezer": 0},
+        {"id": "HB-SHRED", "stage": "Shredding", "base_oil": 0, "base_water": 35, "base_belt": 1.3, "base_freezer": 0},
+        {"id": "HB-FORM", "stage": "Forming", "base_oil": 0, "base_water": 30, "base_belt": 0.9, "base_freezer": 0},
+        {"id": "HB-FRY", "stage": "Par-Frying", "base_oil": 168, "base_water": 0, "base_belt": 0.7, "base_freezer": 0},
+        {"id": "HB-IQF", "stage": "IQF Freezing", "base_oil": 0, "base_water": 0, "base_belt": 0.5, "base_freezer": -20},
+    ]},
+    {"line": "WG", "name": "Wedges", "components": [
+        {"id": "WG-WASH", "stage": "Washing", "base_oil": 0, "base_water": 39, "base_belt": 1.0, "base_freezer": 0},
+        {"id": "WG-CUT", "stage": "Cutting", "base_oil": 0, "base_water": 36, "base_belt": 1.2, "base_freezer": 0},
+        {"id": "WG-SEASON", "stage": "Seasoning", "base_oil": 0, "base_water": 28, "base_belt": 0.8, "base_freezer": 0},
+        {"id": "WG-FRY", "stage": "Frying", "base_oil": 172, "base_water": 0, "base_belt": 0.5, "base_freezer": 0},
+        {"id": "WG-IQF", "stage": "IQF Freezing", "base_oil": 0, "base_water": 0, "base_belt": 0.3, "base_freezer": -19},
+    ]},
+]
+
+
+async def _run_dt_live_feed(duration: int):
+    global _dt_live_feed_running
+    _dt_live_feed_running = True
+    start = _time_feed.time()
+    tick = 0
+    table_full = f"{CATALOG}.{SCHEMA}.{TABLE}"
+    log.info("Digital twin live feed started for %ds", duration)
+    try:
+        while _dt_live_feed_running and (_time_feed.time() - start) < duration:
+            now = datetime.utcnow()
+            ts_str = now.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
+            elapsed = _time_feed.time() - start
+            progress = elapsed / duration
+
+            values = []
+            for line in _DT_LINES:
+                for comp in line["components"]:
+                    # Realistic sensor drift with some wave patterns
+                    noise_a = math.sin(elapsed / 15 + hash(comp["id"]) % 100) * 3.0
+                    noise_b = math.cos(elapsed / 20 + hash(comp["id"]) % 50) * 2.0
+                    noise_c = math.sin(elapsed / 25 + hash(comp["id"]) % 75) * 0.05
+                    noise_d = math.cos(elapsed / 18 + hash(comp["id"]) % 60) * 0.8
+
+                    oil_temp = comp["base_oil"] + noise_a if comp["base_oil"] > 0 else 0
+                    water_temp = comp["base_water"] + noise_b if comp["base_water"] > 0 else 0
+                    belt_speed = max(0.1, comp["base_belt"] + noise_c) if comp["base_belt"] > 0 else 0
+                    freezer_temp = comp["base_freezer"] + noise_d if comp["base_freezer"] != 0 else 0
+
+                    # Simulate anomalies — visible within 30-60 seconds
+                    if comp["id"] == "FF-FRY" and progress > 0.1:
+                        # Fryer oil temp creeps dangerously: 175 → 185 (WARNING at 60s) → 195+ (CRITICAL at 90s)
+                        oil_temp += (progress - 0.1) * 35
+                    if comp["id"] == "WG-FRY" and progress > 0.3:
+                        # Second fryer degrades later
+                        oil_temp += (progress - 0.3) * 30
+                    if comp["id"] == "HB-IQF" and progress > 0.5:
+                        # IQF freezer warming — compressor failing
+                        freezer_temp += (progress - 0.5) * 20  # -20 → -10 → 0
+
+                    values.append(
+                        f"('{comp['id']}', '{line['line']}', '{comp['stage']}', "
+                        f"{oil_temp:.1f}, {water_temp:.1f}, {belt_speed:.2f}, {freezer_temp:.1f}, "
+                        f"CAST('{ts_str}' AS TIMESTAMP))"
+                    )
+
+            sql = (
+                f"INSERT INTO {table_full} "
+                f"(component_id, line_id, stage_id, oil_temperature, water_temperature, belt_speed, freezer_temperature, timestamp) "
+                f"VALUES " + ", ".join(values)
+            )
+            try:
+                await asyncio.to_thread(run_query, sql)
+                log.info("Live feed tick %d: inserted %d readings", tick, len(values))
+            except Exception as e:
+                log.warning("DT live feed insert error: %s", e)
+
+            tick += 1
+            await asyncio.sleep(10)
+    finally:
+        _dt_live_feed_running = False
+        log.info("Digital twin live feed stopped after %d ticks", tick)
+
+
+class DTLiveFeedRequest(BaseModel):
+    duration: int = 300
+
+@app.post("/api/telemetry/start-live-feed")
+async def dt_start_live_feed(body: DTLiveFeedRequest = DTLiveFeedRequest()):
+    global _dt_live_feed_task, _dt_live_feed_start_time
+    if _dt_live_feed_running:
+        return {"status": "already_running", "elapsed": _time_feed.time() - _dt_live_feed_start_time}
+    _dt_live_feed_start_time = _time_feed.time()
+    _dt_live_feed_task = asyncio.create_task(_run_dt_live_feed(body.duration))
+    return {"status": "started", "duration": body.duration}
+
+@app.post("/api/telemetry/stop-live-feed")
+async def dt_stop_live_feed():
+    global _dt_live_feed_running
+    _dt_live_feed_running = False
+    return {"status": "stopping"}
+
+@app.get("/api/telemetry/live-feed-status")
+async def dt_live_feed_status():
+    elapsed = _time_feed.time() - _dt_live_feed_start_time if _dt_live_feed_running else 0
+    return {"running": _dt_live_feed_running, "elapsed_seconds": round(elapsed, 1)}
 
 
 # ─── Frontend Serving ─────────────────────────────────────────────────────────
